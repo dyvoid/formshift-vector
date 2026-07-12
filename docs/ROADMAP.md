@@ -17,7 +17,7 @@ alongside the Vector feature that consumes it. The server slices of M0–M2 are 
 
 | Feature | Status | Description | ADR |
 |---|---|---|---|
-| UI stack choice (shell + canvas library) | Planned | Electron vs. alternative shell; Fabric.js vs. Konva. First task of M0 app code; blocks everything below | — |
+| UI stack choice (shell + canvas library) | Planned | Electron + Fabric.js proposed (vs. Tauri / Konva); awaiting sign-off. Blocks everything below | [0002](adr/0002-ui-stack-electron-fabricjs.md) |
 | M0: Trace (Vector slice) | Planned | Image drop, live trace parameters w/ throttling, commit-only mode, stale-response discarding, SVG preview, export. Dev-mode launch, no installer | — |
 | M1: Pipeline (Vector slice) | Candidate | Layer stack UI (crop, rotate, levels, threshold), binarize pinned late, per-layer on/off, blend/opacity per structural rule, A/B compare, packaged installer w/ embedded Python | — |
 | M2: Color (Vector slice) | Candidate | Posterized multi-color tracing, progressive layer rendering, draft toggle, diff overlay (pixel IoU, recovery metrics) | — |

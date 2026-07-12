@@ -21,9 +21,9 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
 
 ## Next
 
-1. **ADR 0002: UI stack choice** — native shell (Electron vs. alternative) and canvas interaction
-   library (Fabric.js vs. Konva). Blocks all app code; conventions section of AGENTS.md gets its
-   stack specifics from this decision.
+1. **Decide ADR 0002 (UI stack)** — [Proposed](docs/adr/0002-ui-stack-electron-fabricjs.md):
+   Electron shell + Fabric.js canvas. On acceptance, flip status, then fill in the AGENTS.md
+   stack-specific conventions (and pick component framework + bundler as implementation choices).
 2. **M0 Vector slice** (design doc, Version 1 scope): image drop, live trace parameters with
    per-control throttling, commit-only mode, stale-response discarding, SVG preview, export.
    Dev-mode launch against a manually started server (`uv run formshift-server --port 0` in the
