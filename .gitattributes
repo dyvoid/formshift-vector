@@ -1,0 +1,19 @@
+# Normalize line endings: let git handle conversion, store LF in the repo.
+* text=auto eol=lf
+
+# Common binaries -- never normalize, never diff as text.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.icns binary
+*.pdf binary
+*.zip binary
+*.gz binary
+
+# Lockfiles are generated but committed for reproducibility; mark so they don't clutter diffs.
+# (Concrete lockfile depends on the stack ADR; common names covered.)
+package-lock.json linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+yarn.lock linguist-generated=true
