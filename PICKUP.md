@@ -13,6 +13,10 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
 
 - Boilerplate and documentation in place; design doc distilled from the original proposal
   (proposal itself preserved in the first commit as `formshift-proposal.md`).
+- M0 app scaffold done (`task/m0-app-scaffold`): electron-vite + React + TS strict skeleton,
+  ESLint/Prettier/Vitest/tsc quality gate, CI workflow, hardened BrowserWindow defaults. Renderer
+  build verified in headless Chromium; Electron shell launch still unverified on a real machine
+  (sandbox couldn't download the Electron binary — network policy).
 - **Server side is ahead of us**: `dyvoid/formshift-server` has its M0–M2 slices done (HTTP API
   with token auth + sessions, DAG executor with hash-chain cache, potrace module, core raster
   modules, draft, multi-input merges, parallel per-color tracing, progressive streaming). The
@@ -21,9 +25,8 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
 
 ## Next
 
-1. **M0 app scaffold** — Electron + Fabric.js + TypeScript project skeleton (pick component
-   framework and bundler as implementation choices; fill in the AGENTS.md stack-specifics
-   section and wire the lint/type-check/test toolchain + CI).
+1. **Merge `task/m0-app-scaffold`** (needs human review: it adds dependencies and CI config).
+   First run on a real machine: `npm install && npm run dev`, confirm the window opens.
 2. **M0 Vector slice** (design doc, Version 1 scope): image drop, live trace parameters with
    per-control throttling, commit-only mode, stale-response discarding, SVG preview, export.
    Dev-mode launch against a manually started server (`uv run formshift-server --port 0` in the

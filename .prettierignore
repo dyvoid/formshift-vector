@@ -1,0 +1,6 @@
+# Prettier formats source only; hand-written docs keep their own style.
+*.md
+node_modules/
+out/
+dist/
+package-lock.json

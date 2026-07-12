@@ -104,9 +104,19 @@ ai-assisted: <model>
 
 ### Stack specifics
 Shell and canvas library are decided ([ADR 0002](docs/adr/0002-ui-stack-electron-fabricjs.md):
-Electron + Fabric.js); TypeScript is assumed. Remaining tool conventions (component framework,
-bundler, linter/formatter, test runner) land in this section with the M0 app scaffold. Standing
-rules that hold regardless:
+Electron + Fabric.js). The scaffold's implementation choices:
+
+- **Toolchain:** npm (commit `package-lock.json`), [electron-vite](https://electron-vite.org)
+  (main/preload/renderer builds), React, TypeScript `strict` everywhere.
+- **Lint/format/type-check/test:** ESLint (flat config) + Prettier + `tsc` + Vitest. Match this
+  toolchain, don't introduce a competing one. Explicit return types on every function (enforced).
+- **Quality gate:** `npm run lint`, `npm run format`, `npm run typecheck`, `npm test`,
+  `npm run build` — all green before anything merges; CI runs exactly these.
+- **Electron security posture is load-bearing:** `contextIsolation: true`, `sandbox: true`,
+  `nodeIntegration: false`, strict CSP in the renderer, window-open denied. Changes here are in
+  the human-review list above.
+
+Standing rules that hold regardless:
 
 - Commit lockfiles; never commit dependency directories, build output, or bundled runtimes.
 - One toolchain per job: whatever linter/formatter/type-checker the stack ADR picks, match it —
