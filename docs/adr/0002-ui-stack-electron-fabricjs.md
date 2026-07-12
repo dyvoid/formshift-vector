@@ -1,6 +1,6 @@
 # ADR 0002: UI stack — Electron shell, Fabric.js canvas
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-07-12
 
 ## Context

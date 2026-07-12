@@ -21,9 +21,9 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
 
 ## Next
 
-1. **Decide ADR 0002 (UI stack)** — [Proposed](docs/adr/0002-ui-stack-electron-fabricjs.md):
-   Electron shell + Fabric.js canvas. On acceptance, flip status, then fill in the AGENTS.md
-   stack-specific conventions (and pick component framework + bundler as implementation choices).
+1. **M0 app scaffold** — Electron + Fabric.js + TypeScript project skeleton (pick component
+   framework and bundler as implementation choices; fill in the AGENTS.md stack-specifics
+   section and wire the lint/type-check/test toolchain + CI).
 2. **M0 Vector slice** (design doc, Version 1 scope): image drop, live trace parameters with
    per-control throttling, commit-only mode, stale-response discarding, SVG preview, export.
    Dev-mode launch against a manually started server (`uv run formshift-server --port 0` in the
@@ -31,7 +31,6 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
 
 ## Open questions
 
-- UI stack (see Next above).
 - Dev-mode server connection ergonomics: how the client discovers the port/token of a manually
   started server in M0, before the lifecycle manager exists (paste connection info? read the
   server's stdout via a dev script?).

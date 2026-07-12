@@ -44,9 +44,9 @@ exit; in M0 dev mode, a manually started server is fine. See
 [Architecture Overview](docs/architecture/overview.md) for the full picture, and
 [the ADR log](docs/adr/) for the reasoning behind specific decisions.
 
-The concrete UI stack (Electron vs. an alternative shell; Fabric.js vs. Konva for canvas
-interaction) is **deliberately undecided** — recording that choice as an ADR is the first task of
-M0, before app code lands.
+The UI stack is **Electron** (shell) and **Fabric.js** (canvas interaction) per
+[ADR 0002](docs/adr/0002-ui-stack-electron-fabricjs.md). The component framework and bundler are
+implementation choices made when M0 app code starts; they don't reopen the ADR.
 
 ---
 
@@ -103,9 +103,10 @@ ai-assisted: <model>
 ```
 
 ### Stack specifics
-The UI stack is not chosen yet (see Architecture above); language- and tool-specific conventions
-land in this section together with the ADR that picks the stack. Standing rules that hold
-regardless of stack:
+Shell and canvas library are decided ([ADR 0002](docs/adr/0002-ui-stack-electron-fabricjs.md):
+Electron + Fabric.js); TypeScript is assumed. Remaining tool conventions (component framework,
+bundler, linter/formatter, test runner) land in this section with the M0 app scaffold. Standing
+rules that hold regardless:
 
 - Commit lockfiles; never commit dependency directories, build output, or bundled runtimes.
 - One toolchain per job: whatever linter/formatter/type-checker the stack ADR picks, match it —
