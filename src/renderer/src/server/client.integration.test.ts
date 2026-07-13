@@ -28,6 +28,7 @@ function testPng(): Uint8Array<ArrayBuffer> {
 function traceGraph(payloadId: string, blacklevel: number): Graph {
   return {
     nodes: [{ id: 'trace', module: 'potrace.trace', params: { blacklevel } }],
+    edges: [],
     bindings: [{ payload: payloadId, node: 'trace', port: 'image' }],
     outputs: [{ node: 'trace', port: 'svg' }]
   }
@@ -96,6 +97,7 @@ describe.skipIf(!live)('FormshiftClient against a live server', () => {
     try {
       const graph: Graph = {
         nodes: [{ id: 'trace', module: 'no.such.module' }],
+        edges: [],
         bindings: [],
         outputs: [{ node: 'trace', port: 'svg' }]
       }

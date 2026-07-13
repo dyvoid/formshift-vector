@@ -1,9 +1,14 @@
+import { useEffect, useMemo, useState } from 'react'
 import type { JSX } from 'react'
-import { useTrace } from '../hooks/useTrace'
+import { usePipeline } from '../hooks/usePipeline'
+import { createControlStream } from '../interaction/throttle'
+import type { Pipeline } from '../pipeline/model'
+import { DEFAULT_PIPELINE } from '../pipeline/model'
 import type { ConnectionInfo } from '../server/types'
+import type { ChangePhase } from './LayerStack'
+import { LayerStack } from './LayerStack'
 import { DropZone } from './DropZone'
 import { SvgPreview } from './SvgPreview'
-import { TraceControls } from './TraceControls'
 
 interface Props {
   conn: ConnectionInfo
@@ -20,7 +25,24 @@ function exportSvg(sourceName: string, svg: string): void {
 }
 
 export function Editor({ conn, sessionId }: Props): JSX.Element {
-  const { source, state, loadImage, trace } = useTrace(conn, sessionId)
+  const { source, state, loadImage, run } = usePipeline(conn, sessionId)
+  const [pipeline, setPipeline] = useState<Pipeline>(DEFAULT_PIPELINE)
+  const [rateMs, setRateMs] = useState(100)
+  const [commitOnly, setCommitOnly] = useState(false)
+
+  const stream = useMemo(
+    () => createControlStream<Pipeline>(run, { rateMs, commitOnly }),
+    [run, rateMs, commitOnly]
+  )
+  useEffect(() => () => stream.dispose(), [stream])
+
+  function change(next: Pipeline, phase: ChangePhase): void {
+    setPipeline(next)
+    // Structural edits (add/remove/reorder/toggle) arrive as commits and are
+    // never dropped; only streamed slider values pass through the throttle.
+    if (phase === 'input') stream.input(next)
+    else stream.commit(next)
+  }
 
   return (
     <div className="editor">
@@ -39,12 +61,33 @@ export function Editor({ conn, sessionId }: Props): JSX.Element {
       </header>
 
       {source === undefined ? (
-        <DropZone onFile={(file) => void loadImage(file)} />
+        <DropZone onFile={(file) => void loadImage(file, pipeline)} />
       ) : (
         <div className="workspace">
           <aside>
-            <TraceControls disabled={false} onTrace={trace} />
-            <DropZone compact onFile={(file) => void loadImage(file)} />
+            <LayerStack pipeline={pipeline} onChange={change} />
+            <div className="stream-settings">
+              <label>
+                Throttle (ms)
+                <input
+                  type="number"
+                  min={0}
+                  max={2000}
+                  step={50}
+                  value={rateMs}
+                  onChange={(event) => setRateMs(Math.max(0, Number(event.target.value)))}
+                />
+              </label>
+              <label className="inline">
+                <input
+                  type="checkbox"
+                  checked={commitOnly}
+                  onChange={(event) => setCommitOnly(event.target.checked)}
+                />
+                Update on release only
+              </label>
+            </div>
+            <DropZone compact onFile={(file) => void loadImage(file, pipeline)} />
           </aside>
           <SvgPreview source={source} state={state} />
         </div>

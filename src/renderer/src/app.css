@@ -122,34 +122,104 @@ input {
   overflow-y: auto;
 }
 
-/* --- Controls --- */
+/* --- Layer stack --- */
 
-.trace-controls {
+.layer-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.add-layer {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.add-layer button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 0.3rem 0.6rem;
+}
+
+.layer {
   border: 1px solid var(--border);
   border-radius: 8px;
   display: flex;
   flex-direction: column;
-  gap: 0.9rem;
-  padding: 0.8rem;
+  gap: 0.7rem;
+  padding: 0.6rem 0.8rem 0.8rem;
+  margin: 0;
 }
 
-.trace-controls label {
+.layer.off {
+  opacity: 0.55;
+}
+
+.layer.pinned {
+  border-style: dashed;
+}
+
+.layer legend {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0 0.3rem;
+  font-size: 0.85rem;
+}
+
+.layer .pin-note {
+  color: var(--muted);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.layer .layer-actions {
+  display: flex;
+  gap: 0.2rem;
+}
+
+.layer .layer-actions button {
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  padding: 0 0.25rem;
+  font-size: 0.85rem;
+}
+
+.layer .layer-actions button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.layer label {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
   font-size: 0.85rem;
 }
 
-.trace-controls .stream-settings {
+.stream-settings {
   border-top: 1px solid var(--border);
   padding-top: 0.8rem;
   display: flex;
   flex-direction: column;
   gap: 0.6rem;
   color: var(--muted);
+  font-size: 0.85rem;
 }
 
-.trace-controls .inline {
+.stream-settings label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.inline,
+.layer label.inline,
+.stream-settings label.inline {
   flex-direction: row;
   align-items: center;
   gap: 0.5rem;

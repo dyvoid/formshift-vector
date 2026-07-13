@@ -20,6 +20,13 @@ export interface PayloadBinding {
   port: string
 }
 
+export interface Edge {
+  from_node: string
+  from_port: string
+  to_node: string
+  to_port: string
+}
+
 export interface OutputRef {
   node: string
   port: string
@@ -27,6 +34,7 @@ export interface OutputRef {
 
 export interface Graph {
   nodes: GraphNode[]
+  edges: Edge[]
   bindings: PayloadBinding[]
   outputs: OutputRef[]
 }
