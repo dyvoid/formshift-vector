@@ -11,7 +11,12 @@ const STORAGE_KEY = 'formshift-vector.connection'
 function loadStoredConnection(): ConnectionInfo {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw !== null) return JSON.parse(raw) as ConnectionInfo
+    if (raw !== null) {
+      const parsed = JSON.parse(raw) as Partial<ConnectionInfo> | null
+      if (typeof parsed?.baseUrl === 'string' && typeof parsed.token === 'string') {
+        return { baseUrl: parsed.baseUrl, token: parsed.token }
+      }
+    }
   } catch {
     // Corrupt stored value; fall through to the default.
   }
@@ -27,6 +32,8 @@ export default function App(): JSX.Element {
   const [active, setActive] = useState<ActiveConnection>()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string>()
+  // Lazy state, not a plain call: reads localStorage once, not every render.
+  const [storedConn] = useState(loadStoredConnection)
 
   const connect = useCallback(async (conn: ConnectionInfo): Promise<void> => {
     setBusy(true)
@@ -49,7 +56,7 @@ export default function App(): JSX.Element {
   }
   return (
     <ConnectPanel
-      initial={loadStoredConnection()}
+      initial={storedConn}
       busy={busy}
       error={error}
       onConnect={(conn) => void connect(conn)}

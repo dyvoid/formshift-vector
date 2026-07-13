@@ -25,6 +25,11 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
   9 live-server integration, incl. reorder-changes-result and toggle-off-equals-absent).
   Electron shell launch still unverified on a real machine (sandbox can't download the Electron
   binary — network policy).
+- **Code-review pass over M0+M1** (`claude/code-review-quick-wins-7nkc8q`): fixed the traced-SVG
+  blob-URL leak (URL now created and revoked in usePipeline, not in render), waitForJob's
+  already-aborted-signal sleep, an out-of-order race between overlapping image drops, unvalidated
+  localStorage connection JSON; small wins (throttle input clamped to its max, drop-zone Space no
+  longer scrolls). Quality gate green.
 - **Server side is ahead of us**: `dyvoid/formshift-server` has its M0–M2 slices done (HTTP API
   with token auth + sessions, DAG executor with hash-chain cache, potrace module, core raster
   modules, draft, multi-input merges, parallel per-color tracing, progressive streaming). The
@@ -52,4 +57,4 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
   CI job that installs the server (uv + potrace) to run them on GitHub runners?
 
 ---
-*Last updated: 2026-07-12*
+*Last updated: 2026-07-13*

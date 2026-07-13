@@ -18,19 +18,32 @@ export class ServerError extends Error {
 
 const DEFAULT_POLL_MS = 50
 
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError')
+}
+
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
+    if (signal === undefined) {
+      setTimeout(resolve, ms)
+      return
+    }
+    const sig = signal
+    // A listener added after abort never fires; reject up front instead of
+    // sleeping a full interval on a signal that is already dead.
+    if (sig.aborted) {
+      reject(abortReason(sig))
+      return
+    }
     const timer = setTimeout(() => {
-      signal?.removeEventListener('abort', onAbort)
+      sig.removeEventListener('abort', onAbort)
       resolve()
     }, ms)
     function onAbort(): void {
       clearTimeout(timer)
-      reject(
-        signal?.reason instanceof Error ? signal.reason : new DOMException('Aborted', 'AbortError')
-      )
+      reject(abortReason(sig))
     }
-    signal?.addEventListener('abort', onAbort, { once: true })
+    sig.addEventListener('abort', onAbort, { once: true })
   })
 }
 

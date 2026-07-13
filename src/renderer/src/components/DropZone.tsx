@@ -33,7 +33,10 @@ export function DropZone({ onFile, compact = false }: Props): JSX.Element {
       role="button"
       tabIndex={0}
       onKeyDown={(event) => {
-        if (event.key === 'Enter' || event.key === ' ') inputRef.current?.click()
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          inputRef.current?.click()
+        }
       }}
     >
       <input

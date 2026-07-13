@@ -75,7 +75,9 @@ export function Editor({ conn, sessionId }: Props): JSX.Element {
                   max={2000}
                   step={50}
                   value={rateMs}
-                  onChange={(event) => setRateMs(Math.max(0, Number(event.target.value)))}
+                  onChange={(event) =>
+                    setRateMs(Math.min(2000, Math.max(0, Number(event.target.value))))
+                  }
                 />
               </label>
               <label className="inline">

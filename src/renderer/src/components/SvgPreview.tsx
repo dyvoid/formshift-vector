@@ -1,8 +1,8 @@
-// Renders the traced SVG next to the source raster. The SVG goes through a
-// Blob object URL into an <img>, which is inert by construction (no script
-// execution) — safer than injecting server-produced markup into the DOM.
+// Renders the traced SVG next to the source raster. The SVG arrives as a
+// Blob object URL (owned by usePipeline) into an <img>, which is inert by
+// construction (no script execution) — safer than injecting server-produced
+// markup into the DOM.
 
-import { useEffect, useMemo } from 'react'
 import type { JSX } from 'react'
 import type { PipelineState, SourceImage } from '../hooks/usePipeline'
 
@@ -12,16 +12,7 @@ interface Props {
 }
 
 export function SvgPreview({ source, state }: Props): JSX.Element {
-  const svgUrl = useMemo(() => {
-    if (state.phase !== 'done') return undefined
-    return URL.createObjectURL(new Blob([state.svg], { type: 'image/svg+xml' }))
-  }, [state])
-  useEffect(
-    () => () => {
-      if (svgUrl !== undefined) URL.revokeObjectURL(svgUrl)
-    },
-    [svgUrl]
-  )
+  const svgUrl = state.phase === 'done' ? state.svgUrl : undefined
 
   return (
     <div className="preview">

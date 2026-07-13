@@ -20,7 +20,7 @@ export interface SourceImage {
 export type PipelineState =
   | { phase: 'idle' }
   | { phase: 'running' }
-  | { phase: 'done'; svg: string }
+  | { phase: 'done'; svg: string; svgUrl: string }
   | { phase: 'error'; message: string }
 
 interface UsePipeline {
@@ -39,6 +39,12 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
   const [state, setState] = useState<PipelineState>({ phase: 'idle' })
   // Ref, not state: run() closures must always see the current payload.
   const payloadRef = useRef<string | undefined>(undefined)
+  // Orders overlapping loadImage calls: only the newest drop may become the
+  // source, even when an older upload resolves after it.
+  const loadSeqRef = useRef(0)
+  // The one live object URL for the traced SVG; revoked when superseded so
+  // stale results don't pin their blobs in memory.
+  const svgUrlRef = useRef<string | undefined>(undefined)
 
   const execute = useCallback(
     (payloadId: string, pipeline: Pipeline): void => {
@@ -57,7 +63,11 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
           return new TextDecoder().decode(data)
         })
         .then((svg) => {
-          if (svg !== undefined) setState({ phase: 'done', svg })
+          if (svg === undefined) return
+          const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
+          if (svgUrlRef.current !== undefined) URL.revokeObjectURL(svgUrlRef.current)
+          svgUrlRef.current = svgUrl
+          setState({ phase: 'done', svg, svgUrl })
         })
         .catch((error: unknown) => {
           setState({
@@ -71,10 +81,13 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
 
   const loadImage = useCallback(
     async (file: File, pipeline: Pipeline): Promise<void> => {
+      loadSeqRef.current += 1
+      const seq = loadSeqRef.current
       gate.abort('pipeline')
       setState({ phase: 'running' })
       try {
         const payloadId = await client.uploadPayload(sessionId, 'raster/png', file)
+        if (seq !== loadSeqRef.current) return
         payloadRef.current = payloadId
         setSource((previous) => {
           if (previous !== undefined) URL.revokeObjectURL(previous.previewUrl)
@@ -82,6 +95,7 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
         })
         execute(payloadId, pipeline)
       } catch (error) {
+        if (seq !== loadSeqRef.current) return
         setState({
           phase: 'error',
           message: error instanceof Error ? error.message : String(error)
