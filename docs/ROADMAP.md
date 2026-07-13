@@ -18,7 +18,7 @@ alongside the Vector feature that consumes it. The server slices of M0–M2 are 
 | Feature | Status | Description | ADR |
 |---|---|---|---|
 | UI stack choice (shell + canvas library) | Done | Electron + Fabric.js, accepted 2026-07-12 | [0002](adr/0002-ui-stack-electron-fabricjs.md) |
-| M0: Trace (Vector slice) | Planned | Image drop, live trace parameters w/ throttling, commit-only mode, stale-response discarding, SVG preview, export. Dev-mode launch, no installer | — |
+| M0: Trace (Vector slice) | In flight | Code complete: image drop, live trace parameters w/ throttling, commit-only mode, stale-response discarding, SVG preview, export. Exit (real PNG → production SVG using only the app, on a real machine) pending | — |
 | M1: Pipeline (Vector slice) | Candidate | Layer stack UI (crop, rotate, levels, threshold), binarize pinned late, per-layer on/off, blend/opacity per structural rule, A/B compare, packaged installer w/ embedded Python | — |
 | M2: Color (Vector slice) | Candidate | Posterized multi-color tracing, progressive layer rendering, draft toggle, diff overlay (pixel IoU, recovery metrics) | — |
 | M3: Extensions (Vector slice) | Candidate | Background-removal layer; extension-discovery UX decision forced here | — |

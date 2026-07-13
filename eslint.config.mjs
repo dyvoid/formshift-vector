@@ -11,7 +11,7 @@ export default tseslint.config(
     plugins: { 'react-hooks': reactHooks },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      '@typescript-eslint/explicit-function-return-type': 'error'
+      '@typescript-eslint/explicit-function-return-type': ['error', { allowExpressions: true }]
     }
   }
 )
