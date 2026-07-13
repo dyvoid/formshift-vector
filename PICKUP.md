@@ -56,5 +56,31 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
 - CI shape for the integration tests: they skip without FORMSHIFT_URL/FORMSHIFT_TOKEN. Worth a
   CI job that installs the server (uv + potrace) to run them on GitHub runners?
 
+## Deferred findings from the code-review pass (2026-07-13)
+
+Noticed during the review pass but deliberately not changed — each is either on the AGENTS.md
+human-review list or needs a design decision first. Evaluate next session:
+
+- **CSP blocks remote servers**: the renderer CSP's `connect-src` only allows
+  `127.0.0.1`/`localhost`, so entering a remote server URL in the connect panel fails silently
+  at the network layer. Decide together with the escape-hatch open question above; CSP changes
+  are on the human-review list.
+- **Sessions are never deleted**: the client calls `createSession` on connect but never
+  `deleteSession` (no disconnect UI, nothing on window close), so every app run leaves a
+  server-side session behind. Relies on server-side reaping for now; the M1 lifecycle manager
+  is the natural owner (it tears down the whole server process on exit).
+- **Reconnect is impossible without a restart**: once connected, the ConnectPanel is gone —
+  there is no way back to it to switch servers or recover from a dead server/expired session.
+  Related to both points above.
+- **Slider commits on every keyup**: `onKeyUp` fires for any key, so Tab-navigating through
+  sliders re-submits the pipeline. Harmless today (server hash-chain cache makes it a cheap
+  cache hit) but noisy; filtering to value-changing keys is a one-liner if it bothers anyone.
+- **Levels black/white points can cross**: the black-point slider can exceed the white point
+  (black=200, white=100). The server presumably clamps or inverts; decide whether the client
+  should constrain the pair (e.g. min-gap) or leave it as a creative degree of freedom.
+- **No feedback on rejected drops**: dropping a non-PNG file is silently ignored (DropZone
+  filters by `image/png` and does nothing else). A brief "PNG only" hint would help; skipped
+  because it adds UI state, not because it's contested.
+
 ---
 *Last updated: 2026-07-13*
