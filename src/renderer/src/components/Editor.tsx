@@ -32,11 +32,12 @@ export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element 
   const [pipeline, setPipeline] = useState<Pipeline>(DEFAULT_PIPELINE)
   const [rateMs, setRateMs] = useState(100)
   const [commitOnly, setCommitOnly] = useState(false)
+  const [draft, setDraft] = useState(false)
   const [previewBg, setPreviewBg] = useState<PreviewBackdrop>('checker')
 
   const stream = useMemo(
-    () => createControlStream<Pipeline>(run, { rateMs, commitOnly }),
-    [run, rateMs, commitOnly]
+    () => createControlStream<Pipeline>((next) => run(next, { draft }), { rateMs, commitOnly }),
+    [run, rateMs, commitOnly, draft]
   )
   useEffect(() => () => stream.dispose(), [stream])
 
@@ -65,7 +66,7 @@ export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element 
       </header>
 
       {source === undefined ? (
-        <DropZone onFile={(file) => void loadImage(file, pipeline)} />
+        <DropZone onFile={(file) => void loadImage(file, pipeline, { draft })} />
       ) : (
         <div className="workspace">
           <aside>
@@ -92,8 +93,22 @@ export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element 
                 />
                 Update on release only
               </label>
+              <label className="inline">
+                <input
+                  type="checkbox"
+                  checked={draft}
+                  onChange={(event) => {
+                    const next = event.target.checked
+                    setDraft(next)
+                    // Re-run immediately at the new quality; the memoized
+                    // stream still closes over the old draft value this render.
+                    run(pipeline, { draft: next })
+                  }}
+                />
+                Draft quality
+              </label>
             </div>
-            <DropZone compact onFile={(file) => void loadImage(file, pipeline)} />
+            <DropZone compact onFile={(file) => void loadImage(file, pipeline, { draft })} />
           </aside>
           <SvgPreview
             source={source}

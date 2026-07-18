@@ -32,13 +32,18 @@ export type PipelineState =
     }
   | { phase: 'error'; message: string }
 
+export interface RunOptions {
+  /** Ask the server for draft quality (downsampled at the pipeline boundary). */
+  draft?: boolean
+}
+
 interface UsePipeline {
   source: SourceImage | undefined
   state: PipelineState
   /** Upload a new source and run `pipeline` against it. */
-  loadImage(file: File, pipeline: Pipeline): Promise<void>
+  loadImage(file: File, pipeline: Pipeline, options?: RunOptions): Promise<void>
   /** Run the current source through `pipeline`; no-op before a source exists. */
-  run(pipeline: Pipeline): void
+  run(pipeline: Pipeline, options?: RunOptions): void
 }
 
 interface RunResult {
@@ -51,9 +56,10 @@ async function runJob(
   client: FormshiftClient,
   sessionId: string,
   graph: Graph,
+  draft: boolean,
   signal: AbortSignal
 ): Promise<JobOutput[]> {
-  const jobId = await client.submitJob(sessionId, graph, { signal })
+  const jobId = await client.submitJob(sessionId, graph, { draft, signal })
   const job = await client.waitForJob(sessionId, jobId, { signal })
   if (job.status !== 'completed') throw new Error(job.error ?? `job ${job.status}`)
   return job.outputs ?? []
@@ -64,9 +70,16 @@ async function runMono(
   sessionId: string,
   payloadId: string,
   pipeline: Pipeline,
+  draft: boolean,
   signal: AbortSignal
 ): Promise<RunResult> {
-  const outputs = await runJob(client, sessionId, buildPipelineGraph(payloadId, pipeline), signal)
+  const outputs = await runJob(
+    client,
+    sessionId,
+    buildPipelineGraph(payloadId, pipeline),
+    draft,
+    signal
+  )
   const output = outputs.find((o) => o.node === 'trace' && o.port === 'svg')
   if (output === undefined) throw new Error('job completed without an svg output')
   const { data } = await client.downloadPayload(sessionId, output.payload, signal)
@@ -86,6 +99,7 @@ async function runColor(
   sessionId: string,
   payloadId: string,
   pipeline: Pipeline,
+  draft: boolean,
   signal: AbortSignal
 ): Promise<RunResult> {
   // Phase 1: palette discovery. The palette only exists inside posterize's
@@ -95,6 +109,7 @@ async function runColor(
     client,
     sessionId,
     buildPosterizeGraph(payloadId, pipeline),
+    draft,
     signal
   )
   const post = postOutputs.find((o) => o.node === 'post' && o.port === 'image')
@@ -105,7 +120,7 @@ async function runColor(
   // Phase 2: the full fan-out. The posterized PNG doubles as the source
   // preview — it is exactly what the per-color tracers saw.
   const { graph, merged } = buildColorTraceGraph(payloadId, pipeline, palette)
-  const outputs = await runJob(client, sessionId, graph, signal)
+  const outputs = await runJob(client, sessionId, graph, draft, signal)
   const out = outputs.find((o) => o.node === merged.node && o.port === merged.port)
   if (out === undefined) throw new Error('color trace completed without a merged svg output')
   const { data } = await client.downloadPayload(sessionId, out.payload, signal)
@@ -129,15 +144,16 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
   const processedUrlRef = useRef<string | undefined>(undefined)
 
   const execute = useCallback(
-    (payloadId: string, pipeline: Pipeline): void => {
+    (payloadId: string, pipeline: Pipeline, options?: RunOptions): void => {
+      const draft = options?.draft ?? false
       // Keep the previous result visible while re-running; only show the
       // busy placeholder when there is nothing to show yet.
       setState((previous) => (previous.phase === 'done' ? previous : { phase: 'running' }))
       void gate
         .run('pipeline', (signal) =>
           pipeline.quantize.mode === 'posterize'
-            ? runColor(client, sessionId, payloadId, pipeline, signal)
-            : runMono(client, sessionId, payloadId, pipeline, signal)
+            ? runColor(client, sessionId, payloadId, pipeline, draft, signal)
+            : runMono(client, sessionId, payloadId, pipeline, draft, signal)
         )
         .then((result) => {
           if (result === undefined) return
@@ -165,7 +181,7 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
   )
 
   const loadImage = useCallback(
-    async (file: File, pipeline: Pipeline): Promise<void> => {
+    async (file: File, pipeline: Pipeline, options?: RunOptions): Promise<void> => {
       loadSeqRef.current += 1
       const seq = loadSeqRef.current
       gate.abort('pipeline')
@@ -181,7 +197,7 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
           if (previous !== undefined) URL.revokeObjectURL(previous.previewUrl)
           return { name: file.name, payloadId, previewUrl: URL.createObjectURL(file) }
         })
-        execute(payloadId, pipeline)
+        execute(payloadId, pipeline, options)
       } catch (error) {
         if (seq !== loadSeqRef.current) return
         setState({
@@ -194,9 +210,9 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
   )
 
   const run = useCallback(
-    (pipeline: Pipeline): void => {
+    (pipeline: Pipeline, options?: RunOptions): void => {
       const payloadId = payloadRef.current
-      if (payloadId !== undefined) execute(payloadId, pipeline)
+      if (payloadId !== undefined) execute(payloadId, pipeline, options)
     },
     [execute]
   )
