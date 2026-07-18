@@ -56,7 +56,7 @@ describe.skipIf(!live)('pipeline graphs against a live server', () => {
             params: { black: 20, white: 235, gamma: 1.2 }
           }
         ],
-        binarize: { enabled: true, level: 128 },
+        quantize: { mode: 'binarize', level: 128, colors: 8 },
         trace: { blacklevel: 0.5, turdsize: 2 }
       })
       expect(svg).toContain('<svg')

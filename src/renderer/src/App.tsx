@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react'
 import type { JSX } from 'react'
 import { ConnectPanel } from './components/ConnectPanel'
 import { Editor } from './components/Editor'
+import { COLOR_TRACE_MODULES } from './pipeline/graph'
 import { FormshiftClient } from './server/client'
 import type { ConnectionInfo } from './server/types'
 import './app.css'
@@ -26,6 +27,8 @@ function loadStoredConnection(): ConnectionInfo {
 interface ActiveConnection {
   conn: ConnectionInfo
   sessionId: string
+  /** Color-trace modules the server lacks; disables Posterize in the UI. */
+  missingModules: string[]
 }
 
 export default function App(): JSX.Element {
@@ -42,8 +45,17 @@ export default function App(): JSX.Element {
       const client = new FormshiftClient(conn)
       await client.health()
       const sessionId = await client.createSession()
+      // Capability probe, fail-open: if it errs, Posterize stays enabled and
+      // an actual submit surfaces the server's own error instead.
+      const missingModules = await client
+        .listModules()
+        .then((manifests) => {
+          const present = new Set(manifests.map((m) => m.name))
+          return COLOR_TRACE_MODULES.filter((name) => !present.has(name))
+        })
+        .catch(() => [])
       localStorage.setItem(STORAGE_KEY, JSON.stringify(conn))
-      setActive({ conn, sessionId })
+      setActive({ conn, sessionId, missingModules })
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause))
     } finally {
@@ -52,7 +64,13 @@ export default function App(): JSX.Element {
   }, [])
 
   if (active !== undefined) {
-    return <Editor conn={active.conn} sessionId={active.sessionId} />
+    return (
+      <Editor
+        conn={active.conn}
+        sessionId={active.sessionId}
+        missingModules={active.missingModules}
+      />
+    )
   }
   return (
     <ConnectPanel

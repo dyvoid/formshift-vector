@@ -1,7 +1,7 @@
 // The client's pipeline model, per the design doc's Pipeline architecture:
-// a freely reorderable raster stack, then the pinned one-way door (binarize)
-// and the trace step. The linear stack is a degenerate case of the server's
-// graph; buildPipelineGraph() does the translation.
+// a freely reorderable raster stack, then the pinned one-way door (quantize:
+// binarize or posterize) and the trace step. The linear stack is a degenerate
+// case of the server's graph; the builders in graph.ts do the translation.
 
 export type RasterModuleId = 'image.crop' | 'image.rotate' | 'image.levels' | 'image.invert'
 
@@ -13,10 +13,20 @@ export interface RasterLayer {
   params: Record<string, number>
 }
 
-/** Binarize is a layer too (on/off like every layer) but its position is pinned. */
-export interface BinarizeSettings {
-  enabled: boolean
+/**
+ * The pinned one-way door where continuous values become discrete: binarize
+ * (2 colors) or posterize (N colors). Flat rather than a discriminated union
+ * so switching modes preserves both params — the same remembered-while-off
+ * pattern the old binarize toggle had.
+ */
+export type QuantizeMode = 'off' | 'binarize' | 'posterize'
+
+export interface QuantizeSettings {
+  mode: QuantizeMode
+  /** Binarize threshold; retained across mode switches. */
   level: number
+  /** Posterize palette size; retained across mode switches. */
+  colors: number
 }
 
 export interface TraceSettings {
@@ -26,7 +36,7 @@ export interface TraceSettings {
 
 export interface Pipeline {
   layers: RasterLayer[]
-  binarize: BinarizeSettings
+  quantize: QuantizeSettings
   trace: TraceSettings
 }
 
@@ -115,6 +125,6 @@ export function createLayer(module: RasterModuleId): RasterLayer {
 
 export const DEFAULT_PIPELINE: Pipeline = {
   layers: [],
-  binarize: { enabled: false, level: 128 },
+  quantize: { mode: 'off', level: 128, colors: 8 },
   trace: { blacklevel: 0.5, turdsize: 2 }
 }

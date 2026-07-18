@@ -1,16 +1,18 @@
-// The M1 layer stack: a reorderable raster stack over the pinned tail
-// (binarize, then trace). Reordering is only possible within the raster
-// stack — the binarize boundary is enforced by construction, not by
+// The layer stack: a reorderable raster stack over the pinned tail
+// (quantize, then trace). Reordering is only possible within the raster
+// stack — the quantize boundary is enforced by construction, not by
 // validation messages (see the design doc's Pipeline architecture).
 
 import type { JSX } from 'react'
-import type { Pipeline, RasterLayer } from '../pipeline/model'
+import type { Pipeline, QuantizeMode, RasterLayer } from '../pipeline/model'
 import { RASTER_LAYER_DEFS, createLayer, layerDef } from '../pipeline/model'
 
 export type ChangePhase = 'input' | 'commit'
 
 interface Props {
   pipeline: Pipeline
+  /** Modules the connected server lacks; disables the Posterize option. */
+  missingModules?: readonly string[]
   onChange(next: Pipeline, phase: ChangePhase): void
 }
 
@@ -51,7 +53,12 @@ function Slider({ label, min, max, step, value, format, onValue }: SliderProps):
   )
 }
 
-export function LayerStack({ pipeline, onChange }: Props): JSX.Element {
+export function LayerStack({ pipeline, missingModules, onChange }: Props): JSX.Element {
+  const posterizeMissing =
+    missingModules !== undefined && missingModules.length > 0
+      ? `Server missing: ${missingModules.join(', ')}`
+      : undefined
+
   function patch(partial: Partial<Pipeline>, phase: ChangePhase): void {
     onChange({ ...pipeline, ...partial }, phase)
   }
@@ -137,30 +144,52 @@ export function LayerStack({ pipeline, onChange }: Props): JSX.Element {
         )
       })}
 
-      <fieldset className={`layer pinned${pipeline.binarize.enabled ? '' : ' off'}`}>
+      <fieldset className={`layer pinned${pipeline.quantize.mode === 'off' ? ' off' : ''}`}>
         <legend>
-          <label className="inline">
-            <input
-              type="checkbox"
-              checked={pipeline.binarize.enabled}
-              onChange={(event) =>
-                patch(
-                  { binarize: { ...pipeline.binarize, enabled: event.target.checked } },
-                  'commit'
-                )
-              }
-            />
-            Binarize <span className="pin-note">pinned</span>
-          </label>
+          Quantize <span className="pin-note">pinned</span>
         </legend>
-        {pipeline.binarize.enabled && (
+        <label>
+          Mode
+          <select
+            value={pipeline.quantize.mode}
+            onChange={(event) =>
+              patch(
+                { quantize: { ...pipeline.quantize, mode: event.target.value as QuantizeMode } },
+                'commit'
+              )
+            }
+          >
+            <option value="off">Off</option>
+            <option value="binarize">Binarize</option>
+            <option
+              value="posterize"
+              disabled={posterizeMissing !== undefined}
+              title={posterizeMissing}
+            >
+              Posterize
+            </option>
+          </select>
+        </label>
+        {pipeline.quantize.mode === 'binarize' && (
           <Slider
             label="Level"
             min={0}
             max={255}
             step={1}
-            value={pipeline.binarize.level}
-            onValue={(level, phase) => patch({ binarize: { ...pipeline.binarize, level } }, phase)}
+            value={pipeline.quantize.level}
+            onValue={(level, phase) => patch({ quantize: { ...pipeline.quantize, level } }, phase)}
+          />
+        )}
+        {pipeline.quantize.mode === 'posterize' && (
+          <Slider
+            label="Colors"
+            min={2}
+            max={32}
+            step={1}
+            value={pipeline.quantize.colors}
+            onValue={(colors, phase) =>
+              patch({ quantize: { ...pipeline.quantize, colors } }, phase)
+            }
           />
         )}
       </fieldset>

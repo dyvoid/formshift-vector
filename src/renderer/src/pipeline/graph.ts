@@ -9,6 +9,19 @@ import { layerDef } from './model'
 
 const IMAGE_PORT = 'image'
 
+/**
+ * Modules the posterize (color-trace) path needs beyond the mono path.
+ * Module names are the server's forward-only contract; this list only feeds
+ * the connect-time capability probe (UX sugar — an actual submit against an
+ * old server still fails loudly with the server's 422).
+ */
+export const COLOR_TRACE_MODULES: readonly string[] = [
+  'image.posterize',
+  'image.colormask',
+  'svg.colorize',
+  'svg.merge'
+]
+
 function layerParams(layer: RasterLayer): Record<string, number> {
   const params: Record<string, number> = {}
   for (const spec of layerDef(layer.module).params) {
@@ -27,11 +40,11 @@ export function buildPipelineGraph(payloadId: string, pipeline: Pipeline): Graph
     if (!layer.enabled) continue
     nodes.push({ id: layer.id, module: layer.module, params: layerParams(layer) })
   }
-  if (pipeline.binarize.enabled) {
+  if (pipeline.quantize.mode === 'binarize') {
     nodes.push({
       id: 'binarize',
       module: 'image.threshold',
-      params: { level: pipeline.binarize.level }
+      params: { level: pipeline.quantize.level }
     })
   }
   nodes.push({ id: 'trace', module: 'potrace.trace', params: { ...pipeline.trace } })

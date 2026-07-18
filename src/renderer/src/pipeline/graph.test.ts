@@ -71,7 +71,7 @@ describe('buildPipelineGraph', () => {
       'P1',
       pipeline({
         layers: [layer('a', 'image.levels')],
-        binarize: { enabled: true, level: 100 }
+        quantize: { mode: 'binarize', level: 100, colors: 8 }
       })
     )
     expect(graph.nodes.map((n) => n.id)).toEqual(['a', 'binarize', 'trace'])
@@ -80,6 +80,14 @@ describe('buildPipelineGraph', () => {
       module: 'image.threshold',
       params: { level: 100 }
     })
+  })
+
+  it('quantize mode off matches the old disabled-binarize behavior', () => {
+    const off = buildPipelineGraph(
+      'P1',
+      pipeline({ quantize: { mode: 'off', level: 100, colors: 8 } })
+    )
+    expect(off).toEqual(buildPipelineGraph('P1', DEFAULT_PIPELINE))
   })
 
   it('supports a param-less invert layer', () => {
@@ -93,7 +101,7 @@ describe('buildPipelineGraph', () => {
       'P1',
       pipeline({
         layers: [layer('a', 'image.rotate', { angle: 90 })],
-        binarize: { enabled: true, level: 100 }
+        quantize: { mode: 'binarize', level: 100, colors: 8 }
       })
     )
     expect(withStack.outputs).toEqual([

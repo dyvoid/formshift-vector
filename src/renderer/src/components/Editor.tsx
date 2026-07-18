@@ -14,6 +14,8 @@ import { SvgPreview } from './SvgPreview'
 interface Props {
   conn: ConnectionInfo
   sessionId: string
+  /** Color-trace modules the server lacks; disables Posterize in the stack. */
+  missingModules?: readonly string[]
 }
 
 function exportSvg(sourceName: string, svg: string): void {
@@ -25,7 +27,7 @@ function exportSvg(sourceName: string, svg: string): void {
   URL.revokeObjectURL(url)
 }
 
-export function Editor({ conn, sessionId }: Props): JSX.Element {
+export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element {
   const { source, state, loadImage, run } = usePipeline(conn, sessionId)
   const [pipeline, setPipeline] = useState<Pipeline>(DEFAULT_PIPELINE)
   const [rateMs, setRateMs] = useState(100)
@@ -67,7 +69,7 @@ export function Editor({ conn, sessionId }: Props): JSX.Element {
       ) : (
         <div className="workspace">
           <aside>
-            <LayerStack pipeline={pipeline} onChange={change} />
+            <LayerStack pipeline={pipeline} missingModules={missingModules} onChange={change} />
             <div className="stream-settings">
               <label>
                 Throttle (ms)
