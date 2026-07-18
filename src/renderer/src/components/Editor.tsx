@@ -20,7 +20,7 @@ function exportSvg(sourceName: string, svg: string): void {
   const url = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
   const anchor = document.createElement('a')
   anchor.href = url
-  anchor.download = `${sourceName.replace(/\.png$/i, '')}.svg`
+  anchor.download = `${sourceName.replace(/\.[^.]+$/, '')}.svg`
   anchor.click()
   URL.revokeObjectURL(url)
 }

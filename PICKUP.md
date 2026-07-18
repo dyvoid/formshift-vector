@@ -86,8 +86,9 @@ human-review list or needs a design decision first. Evaluate next session:
 - **Levels black/white points can cross**: the black-point slider can exceed the white point
   (black=200, white=100). The server presumably clamps or inverts; decide whether the client
   should constrain the pair (e.g. min-gap) or leave it as a creative degree of freedom.
-- **No feedback on rejected drops**: dropping a non-PNG file is silently ignored (DropZone
-  filters by `image/png` and does nothing else). A brief "PNG only" hint would help; skipped
+- **No feedback on rejected drops**: dropping a non-image file is silently ignored (DropZone
+  filters by `image/*` and does nothing else — any decodable image is accepted since 2026-07-18,
+  re-encoded to PNG client-side before upload). A brief "images only" hint would help; skipped
   because it adds UI state, not because it's contested.
 
 ---

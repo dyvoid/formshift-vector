@@ -4,6 +4,7 @@
 // newer edit supersedes before it renders.
 
 import { useCallback, useMemo, useRef, useState } from 'react'
+import { toPng } from '../image/toPng'
 import { LatestGate } from '../interaction/latest'
 import { buildPipelineGraph } from '../pipeline/graph'
 import type { Pipeline } from '../pipeline/model'
@@ -111,7 +112,10 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
       gate.abort('pipeline')
       setState({ phase: 'running' })
       try {
-        const payloadId = await client.uploadPayload(sessionId, 'raster/png', file)
+        // Any decodable image is accepted; the upload is always PNG.
+        const png = await toPng(file)
+        if (seq !== loadSeqRef.current) return
+        const payloadId = await client.uploadPayload(sessionId, 'raster/png', png)
         if (seq !== loadSeqRef.current) return
         payloadRef.current = payloadId
         setSource((previous) => {

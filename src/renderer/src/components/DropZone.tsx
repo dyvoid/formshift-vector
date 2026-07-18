@@ -6,9 +6,9 @@ interface Props {
   compact?: boolean
 }
 
-function pngOf(items: FileList | null): File | undefined {
+function imageOf(items: FileList | null): File | undefined {
   const file = items?.[0]
-  return file !== undefined && file.type === 'image/png' ? file : undefined
+  return file !== undefined && file.type.startsWith('image/') ? file : undefined
 }
 
 export function DropZone({ onFile, compact = false }: Props): JSX.Element {
@@ -26,7 +26,7 @@ export function DropZone({ onFile, compact = false }: Props): JSX.Element {
       onDrop={(event) => {
         event.preventDefault()
         setOver(false)
-        const file = pngOf(event.dataTransfer.files)
+        const file = imageOf(event.dataTransfer.files)
         if (file !== undefined) onFile(file)
       }}
       onClick={() => inputRef.current?.click()}
@@ -42,15 +42,15 @@ export function DropZone({ onFile, compact = false }: Props): JSX.Element {
       <input
         ref={inputRef}
         type="file"
-        accept="image/png"
+        accept="image/*"
         hidden
         onChange={(event) => {
-          const file = pngOf(event.target.files)
+          const file = imageOf(event.target.files)
           if (file !== undefined) onFile(file)
           event.target.value = ''
         }}
       />
-      {compact ? 'Drop a PNG to replace' : 'Drop a PNG here, or click to browse'}
+      {compact ? 'Drop an image to replace' : 'Drop an image here, or click to browse'}
     </div>
   )
 }
