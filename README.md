@@ -1,6 +1,6 @@
 # Formshift: Vector
 
-[![Status](https://img.shields.io/badge/status-M1_in_flight-yellow)](docs/ROADMAP.md)
+[![Status](https://img.shields.io/badge/status-M2_Color_in_flight-yellow)](docs/ROADMAP.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript&logoColor=white)](tsconfig.json)
 [![Electron](https://img.shields.io/badge/Electron-43-47848F?logo=electron&logoColor=white)](docs/adr/0002-ui-stack-electron-fabricjs.md)
@@ -85,12 +85,13 @@ the app like this:
 
 ## Status
 
-M0 ("Trace") is done and M1 is underway: drop a PNG, edit a reorderable raster stack
-(crop/rotate/levels/invert) over the pinned binarize + trace tail, watch the pre-processed
-source and traced SVG side by side (with a selectable preview backdrop), export the SVG.
-Remaining M1 work: A/B compare, packaged installer with server lifecycle management,
-interactive crop handles. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for milestone sequencing,
-[`docs/architecture/design.md`](docs/architecture/design.md) for the full design, and
+Working today: drop an image, edit a reorderable raster stack (crop/rotate/levels/invert) over
+the pinned binarize + trace tail, watch the pre-processed source and traced SVG side by side
+(with a selectable preview backdrop), export the SVG. The active milestone is **M2: Color** —
+posterized multi-color tracing, a draft toggle, progressive per-color rendering, and a diff
+overlay. M1's remainder (packaged installer with server lifecycle management, interactive crop
+handles) is parked behind it. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for sequencing and
+rationale, [`docs/architecture/design.md`](docs/architecture/design.md) for the full design, and
 [`PICKUP.md`](PICKUP.md) for where the last session left off.
 
 ## Getting Started

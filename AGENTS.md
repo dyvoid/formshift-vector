@@ -20,11 +20,17 @@ raster preprocessing, the trace step, and vector post-processing — plus print 
 separation, underbase, trapping) that no general-purpose vectorizer serves.
 
 **This repository is the client only.** Vector is the first client of Formshift Server (a module
-execution engine, in its own repository at `dyvoid/formshift-server`) and embeds it as a
+execution engine, in its own public repository at
+[`dyvoid/formshift-server`](https://github.com/dyvoid/formshift-server)) and embeds it as a
 subprocess. All processing routes through the server's HTTP API; this app is presentation and
 interaction only. Do not implement image or vector processing in the client, and do not add engine
 concepts (executor, caching, module internals) here — a new processing capability is a new server
 module, consumed from here through the protocol.
+
+**For server capability or status questions, consult the server side directly** — the server
+repo's roadmap/docs (usually checked out as a sibling at `../formshift-server`, and public on
+GitHub) or the live module manifests (`listModules` in the client). Do not record server status in
+this repo's docs: link, don't copy — copied status goes stale.
 
 The full design — problem, scope, pipeline architecture, interaction model, packaging, milestones,
 open risks — lives in [Design](docs/architecture/design.md). Treat it as the source of truth for

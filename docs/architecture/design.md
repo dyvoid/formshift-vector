@@ -225,16 +225,19 @@ potrace.
 
 ## Build strategy
 
-Vector and the server are one track, not two: each server capability lands in the same milestone
-as the Vector feature that consumes it (the server's final milestone, M5, is the explicit
-exception — it is for consumers other than Vector). Development is linear in contracts, not in
-code volume: the server's protocol surface is forward-only, and this client codes against it.
-Client internals are free to churn behind stable behavior; "never move backwards" here means never
-break a shipped user-facing behavior or the server contract this client depends on, not never
-rewrite code.
+Vector and the server share one milestone vocabulary: each milestone number names the same
+capability in both repos (the server's final milestone, M5, is the explicit exception — it is for
+consumers other than Vector). The plan was one synchronized track, but the server has since
+completed its slices ahead of this client, so milestone numbers are now capability buckets, not a
+schedule — the client works through them in the order the [roadmap](../ROADMAP.md)'s statuses set.
+Development is linear in contracts, not in code volume: the server's protocol surface is
+forward-only, and this client codes against it. Client internals are free to churn behind stable
+behavior; "never move backwards" here means never break a shipped user-facing behavior or the
+server contract this client depends on, not never rewrite code.
 
-The server-side slices of M0–M2 are already implemented in the server repo. This repo starts at
-zero and builds the Vector slices against them.
+For current server capability or status, consult the server repo
+([dyvoid/formshift-server](https://github.com/dyvoid/formshift-server), public) or the live module
+manifests; server status is deliberately not duplicated in this repo's docs.
 
 ### Version 1 scope (M0)
 
@@ -254,8 +257,9 @@ stale-response discarding, SVG preview, export. Dev-mode launch (manually starte
 Exit: take a real design from PNG to production-ready SVG using only the app.
 
 **M1: Pipeline.** The layer stack UI (crop, rotate, levels, threshold), binarize pinned late,
-per-layer on/off, blend/opacity per the structural rule, A/B compare, packaged installer with
-embedded Python.
+per-layer on/off, blend/opacity per the structural rule, packaged installer with embedded Python.
+(A/B compare was originally M1 scope; demoted to a roadmap Candidate 2026-07-18 — M2's diff
+overlay covers much of the same need quantitatively.)
 Exit: reordering a mid-stack layer recomputes only downstream; the installer runs on a clean
 machine; a client-side performance baseline on target hardware is recorded.
 
@@ -273,9 +277,12 @@ conflict with core.
 generation, trapping, garment mockup preview.
 Exit: produce separations for a real print job fit to hand to a printer.
 
-Sequencing notes: M0 through M2 are dependency-ordered. M3 and M4 can swap depending on which
-matters first to real work. The installer sits in M1 rather than M0 deliberately (M0 serves its
-own developer; packaging should not delay first real use), and the diff overlay sits in M2 where
+Sequencing notes: milestone numbers do not dictate execution order — the roadmap's statuses do.
+M2 depends only on M1's layer stack (shipped); M1's remainder (installer, crop handles) is
+orthogonal to M2 and deliberately parked behind it, since color output matters more and most real
+designs are multi-color (which also makes M2 the practical path to M0's exit condition). M3 and
+M4 can swap depending on which matters first to real work. The installer sits after first real
+use deliberately (packaging should not delay it), and the diff overlay sits in M2 where
 multi-color output makes fidelity hardest to eyeball.
 
 ---

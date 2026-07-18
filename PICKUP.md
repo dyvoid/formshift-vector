@@ -5,9 +5,11 @@ instead of archaeology.
 
 ## Current focus
 
-Repository just scaffolded (AGENTS.md, docs tree, git strategy, ADR 0001). No app code yet. Next
-is the UI stack decision, then the M0 Vector slice — see [docs/ROADMAP.md](docs/ROADMAP.md) and
-the Milestones section of [docs/architecture/design.md](docs/architecture/design.md).
+**M2 (Color) is the active milestone**, re-prioritized ahead of M1's remainder on 2026-07-18:
+color output matters more than the installer/crop handles/A/B compare, and most real designs are
+multi-color, so M2 is also the practical path to M0's exit condition. Staging and rationale in
+[docs/ROADMAP.md](docs/ROADMAP.md); milestone definitions in the Milestones section of
+[docs/architecture/design.md](docs/architecture/design.md).
 
 ## State
 
@@ -30,10 +32,11 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
   already-aborted-signal sleep, an out-of-order race between overlapping image drops, unvalidated
   localStorage connection JSON; small wins (throttle input clamped to its max, drop-zone Space no
   longer scrolls). Quality gate green.
-- **Server side is ahead of us**: `dyvoid/formshift-server` has its M0–M2 slices done (HTTP API
-  with token auth + sessions, DAG executor with hash-chain cache, potrace module, core raster
-  modules, draft, multi-input merges, parallel per-color tracing, progressive streaming). The
-  Vector slices of M0–M2 are unblocked.
+- **Server side is finished ahead of us**: `dyvoid/formshift-server` (now public) has completed
+  its milestone slices through M4, so every Vector slice is unblocked. Per the new AGENTS.md rule,
+  server status is no longer duplicated here — check the server repo's roadmap or the live module
+  manifests. A server-side ADR (2026-07-18) keeps per-color masks disjoint, with an optional
+  `grow`/dilation param deferred until seams are actually visible in a real trace.
 - **Invert layer + preview upgrades** (2026-07-18, validated on a real machine): `image.invert`
   as a fourth raster module (param-less, data-only addition to `RASTER_LAYER_DEFS`); a
   Default/Black/White/Transparent backdrop picker above the Trace figure (view-only local state
@@ -46,15 +49,28 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
 
 ## Next
 
-1. **M0/M1 validation on a real machine**: partially done — the app now runs on a real machine
-   against a live server (invert layer, backdrop picker, and pre-processed source preview all
-   confirmed working). Remaining: take a real design from PNG to production-ready SVG using only
-   the app (M0 exit).
-2. **Remaining M1 slice**: A/B compare; blend/opacity per the structural rule (**blocked on a
-   server-side blend module** — the server has no image.blend; needs a server-repo task first);
-   packaged installer with embedded Python + server lifecycle manager (needs a real machine);
-   interactive crop handles on the preview canvas (first real Fabric.js use — the current crop
-   layer UI is numeric sliders).
+1. **M2 stage 1 — posterized color tracing, non-progressive**: generalize the pipeline model's
+   pinned tail (binarize becomes the 2-color case of a quantize stage with a color count),
+   fan-out in `buildPipelineGraph` (posterize → N× colormask→trace branches; the current builder
+   assumes one linear chain), module names/ports read from the server's manifests (`listModules`)
+   instead of hard-coded. Delivered through the existing poll-until-terminal path — color output
+   lands here.
+2. **M2 stage 2 — draft toggle**: nearly free; `submitJob` already plumbs the `draft` flag,
+   nothing sets it. A checkbox next to throttle/commit-only.
+3. **M2 stage 3 — progressive rendering**: SSE consumer in the client (none exists — the client
+   is poll-only today) surfacing per-node outputs as they complete, plus completion-order
+   compositing of per-color layers in the preview. This is the M2 exit condition (16-color trace
+   renders progressively). Correct without ordering logic because per-color masks are disjoint
+   per the server-side ADR.
+4. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): measurement, not capability;
+   last.
+5. **M0 exit**, best attempted once color works: take a real (multi-color) design from image to
+   production-ready SVG using only the app.
+6. **Parked M1 remainder** (after M2): packaged installer with embedded Python + server lifecycle
+   manager (also the natural owner of the deferred session-cleanup/reconnect findings below);
+   interactive crop handles (first real Fabric.js use — the current crop layer UI is numeric
+   sliders). Blend/opacity remains blocked on a server-side blend module. A/B compare demoted to
+   roadmap Candidate.
 
 ## Open questions
 
