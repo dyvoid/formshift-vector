@@ -20,7 +20,14 @@ export interface SourceImage {
 export type PipelineState =
   | { phase: 'idle' }
   | { phase: 'running' }
-  | { phase: 'done'; svg: string; svgUrl: string }
+  | {
+      phase: 'done'
+      svg: string
+      svgUrl: string
+      /** The raster as trace saw it (post pre-processing); absent when the
+       *  source went into trace untouched. */
+      processedUrl?: string
+    }
   | { phase: 'error'; message: string }
 
 interface UsePipeline {
@@ -45,6 +52,8 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
   // The one live object URL for the traced SVG; revoked when superseded so
   // stale results don't pin their blobs in memory.
   const svgUrlRef = useRef<string | undefined>(undefined)
+  // Same lifecycle for the pre-processed raster preview.
+  const processedUrlRef = useRef<string | undefined>(undefined)
 
   const execute = useCallback(
     (payloadId: string, pipeline: Pipeline): void => {
@@ -60,14 +69,30 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
           const output = job.outputs?.find((o) => o.node === 'trace' && o.port === 'svg')
           if (output === undefined) throw new Error('job completed without an svg output')
           const { data } = await client.downloadPayload(sessionId, output.payload, signal)
-          return new TextDecoder().decode(data)
+          const svg = new TextDecoder().decode(data)
+          // The pre-processed raster tap (see buildPipelineGraph); absent when
+          // the source went straight into trace.
+          const tap = job.outputs?.find((o) => o.port === 'image')
+          const processed =
+            tap === undefined
+              ? undefined
+              : await client.downloadPayload(sessionId, tap.payload, signal)
+          return { svg, processed }
         })
-        .then((svg) => {
-          if (svg === undefined) return
+        .then((result) => {
+          if (result === undefined) return
+          const { svg, processed } = result
           const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
           if (svgUrlRef.current !== undefined) URL.revokeObjectURL(svgUrlRef.current)
           svgUrlRef.current = svgUrl
-          setState({ phase: 'done', svg, svgUrl })
+          // Payload types are Formshift tags ("raster/png"), not MIME types.
+          const processedUrl =
+            processed === undefined
+              ? undefined
+              : URL.createObjectURL(new Blob([processed.data], { type: 'image/png' }))
+          if (processedUrlRef.current !== undefined) URL.revokeObjectURL(processedUrlRef.current)
+          processedUrlRef.current = processedUrl
+          setState({ phase: 'done', svg, svgUrl, processedUrl })
         })
         .catch((error: unknown) => {
           setState({

@@ -82,6 +82,30 @@ describe('buildPipelineGraph', () => {
     })
   })
 
+  it('supports a param-less invert layer', () => {
+    const graph = buildPipelineGraph('P1', pipeline({ layers: [layer('a', 'image.invert')] }))
+    expect(graph.nodes.map((n) => n.id)).toEqual(['a', 'trace'])
+    expect(graph.nodes[0]).toEqual({ id: 'a', module: 'image.invert', params: {} })
+  })
+
+  it('taps the image feeding trace as a second output', () => {
+    const withStack = buildPipelineGraph(
+      'P1',
+      pipeline({
+        layers: [layer('a', 'image.rotate', { angle: 90 })],
+        binarize: { enabled: true, level: 100 }
+      })
+    )
+    expect(withStack.outputs).toEqual([
+      { node: 'trace', port: 'svg' },
+      { node: 'binarize', port: 'image' }
+    ])
+
+    // No pre-processing: the source goes straight into trace, nothing to tap.
+    const bare = buildPipelineGraph('P1', DEFAULT_PIPELINE)
+    expect(bare.outputs).toEqual([{ node: 'trace', port: 'svg' }])
+  })
+
   it('fills unset params with defaults and omits sentinel values', () => {
     const graph = buildPipelineGraph(
       'P1',

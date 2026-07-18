@@ -8,6 +8,7 @@ import type { ConnectionInfo } from '../server/types'
 import type { ChangePhase } from './LayerStack'
 import { LayerStack } from './LayerStack'
 import { DropZone } from './DropZone'
+import type { PreviewBackdrop } from './SvgPreview'
 import { SvgPreview } from './SvgPreview'
 
 interface Props {
@@ -29,6 +30,7 @@ export function Editor({ conn, sessionId }: Props): JSX.Element {
   const [pipeline, setPipeline] = useState<Pipeline>(DEFAULT_PIPELINE)
   const [rateMs, setRateMs] = useState(100)
   const [commitOnly, setCommitOnly] = useState(false)
+  const [previewBg, setPreviewBg] = useState<PreviewBackdrop>('checker')
 
   const stream = useMemo(
     () => createControlStream<Pipeline>(run, { rateMs, commitOnly }),
@@ -91,7 +93,12 @@ export function Editor({ conn, sessionId }: Props): JSX.Element {
             </div>
             <DropZone compact onFile={(file) => void loadImage(file, pipeline)} />
           </aside>
-          <SvgPreview source={source} state={state} />
+          <SvgPreview
+            source={source}
+            state={state}
+            previewBg={previewBg}
+            onPreviewBgChange={setPreviewBg}
+          />
         </div>
       )}
     </div>

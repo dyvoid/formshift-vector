@@ -3,7 +3,7 @@
 // graph out. Ordering rules live here and nowhere else: enabled raster
 // layers in stack order, then binarize (the pinned one-way door), then trace.
 
-import type { Graph, GraphNode, Edge } from '../server/types'
+import type { Graph, GraphNode, Edge, OutputRef } from '../server/types'
 import type { Pipeline, RasterLayer } from './model'
 import { layerDef } from './model'
 
@@ -45,10 +45,15 @@ export function buildPipelineGraph(payloadId: string, pipeline: Pipeline): Graph
     })
   }
 
+  // Also tap the image feeding trace, so the client can preview the
+  // pre-processed raster. Absent when the source goes straight into trace.
+  const outputs: OutputRef[] = [{ node: 'trace', port: 'svg' }]
+  if (nodes.length > 1) outputs.push({ node: nodes[nodes.length - 2].id, port: IMAGE_PORT })
+
   return {
     nodes,
     edges,
     bindings: [{ payload: payloadId, node: nodes[0].id, port: IMAGE_PORT }],
-    outputs: [{ node: 'trace', port: 'svg' }]
+    outputs
   }
 }

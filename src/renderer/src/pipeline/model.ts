@@ -3,7 +3,7 @@
 // and the trace step. The linear stack is a degenerate case of the server's
 // graph; buildPipelineGraph() does the translation.
 
-export type RasterModuleId = 'image.crop' | 'image.rotate' | 'image.levels'
+export type RasterModuleId = 'image.crop' | 'image.rotate' | 'image.levels' | 'image.invert'
 
 export interface RasterLayer {
   /** Client-local identity, stable across reorders. */
@@ -90,6 +90,11 @@ export const RASTER_LAYER_DEFS: readonly LayerDef[] = [
       { key: 'white', label: 'White point', min: 1, max: 255, step: 1, default: 255 },
       { key: 'gamma', label: 'Gamma', min: 0.1, max: 5, step: 0.05, default: 1 }
     ]
+  },
+  {
+    module: 'image.invert',
+    label: 'Invert',
+    params: []
   }
 ]
 

@@ -6,30 +6,60 @@
 import type { JSX } from 'react'
 import type { PipelineState, SourceImage } from '../hooks/usePipeline'
 
+export type PreviewBackdrop = 'checker' | 'black' | 'white' | 'transparent'
+
+const BACKDROPS: readonly PreviewBackdrop[] = ['checker', 'black', 'white', 'transparent']
+
+const BACKDROP_LABEL: Record<PreviewBackdrop, string> = {
+  checker: 'Default',
+  black: 'Black',
+  white: 'White',
+  transparent: 'Transparent'
+}
+
 interface Props {
   source: SourceImage
   state: PipelineState
+  previewBg: PreviewBackdrop
+  onPreviewBgChange(next: PreviewBackdrop): void
 }
 
-export function SvgPreview({ source, state }: Props): JSX.Element {
+export function SvgPreview({ source, state, previewBg, onPreviewBgChange }: Props): JSX.Element {
   const svgUrl = state.phase === 'done' ? state.svgUrl : undefined
+  // Show the raster as trace saw it (post pre-processing); the raw drop is
+  // the fallback until a result arrives or when the stack is empty.
+  const processedUrl = state.phase === 'done' ? state.processedUrl : undefined
 
   return (
     <div className="preview">
       <figure>
-        <img src={source.previewUrl} alt={`Source: ${source.name}`} />
-        <figcaption>Source</figcaption>
+        <img src={processedUrl ?? source.previewUrl} alt={`Source: ${source.name}`} />
+        <figcaption>{processedUrl !== undefined ? 'Source (pre-processed)' : 'Source'}</figcaption>
       </figure>
-      <figure className={state.phase === 'running' ? 'busy' : ''}>
-        {svgUrl !== undefined ? (
-          <img src={svgUrl} alt="Traced SVG" />
-        ) : (
-          <div className="placeholder">
-            {state.phase === 'error' ? `Trace failed: ${state.message}` : 'Tracing…'}
-          </div>
-        )}
-        <figcaption>Trace</figcaption>
-      </figure>
+      <div className="trace-column">
+        <div className="backdrop-picker" role="group" aria-label="Trace preview background">
+          {BACKDROPS.map((opt) => (
+            <button
+              key={opt}
+              type="button"
+              className={previewBg === opt ? 'active' : ''}
+              onClick={() => onPreviewBgChange(opt)}
+            >
+              {BACKDROP_LABEL[opt]}
+            </button>
+          ))}
+        </div>
+        <figure className={`bg-${previewBg}${state.phase === 'running' ? ' busy' : ''}`}>
+          {svgUrl !== undefined ? (
+            <img src={svgUrl} alt="Traced SVG" />
+          ) : (
+            <div className="placeholder">
+              {state.phase === 'error' ? `Trace failed: ${state.message}` : 'Tracing…'}
+            </div>
+          )}
+          <figcaption>Trace</figcaption>
+        </figure>
+      </div>
     </div>
   )
 }

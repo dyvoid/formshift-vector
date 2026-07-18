@@ -263,6 +263,13 @@ input {
   min-height: 0;
 }
 
+.trace-column {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-height: 0;
+}
+
 .preview figure {
   margin: 0;
   display: flex;
@@ -285,6 +292,37 @@ input {
   object-fit: contain;
   /* checkerboard so transparency is visible */
   background: repeating-conic-gradient(#23262d 0% 25%, #1a1d23 0% 50%) 0 0 / 24px 24px;
+}
+
+/* Trace-only backdrop override — preview purposes only, does not affect export */
+.trace-column figure.bg-black img {
+  background: #000;
+}
+
+.trace-column figure.bg-white img {
+  background: #fff;
+}
+
+.trace-column figure.bg-transparent img {
+  background: none;
+}
+
+.backdrop-picker {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.backdrop-picker button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.55rem;
+}
+
+.backdrop-picker button.active {
+  color: var(--text);
+  border-color: var(--accent);
 }
 
 .preview .placeholder {
