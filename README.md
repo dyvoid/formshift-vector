@@ -12,21 +12,17 @@ its HTTP API. The client is presentation and interaction only.
 
 ## Status
 
-Pre-M0: repository scaffolded, no app code yet. The server side is ahead — its M0–M2 slices
-(HTTP API with token auth, DAG executor with hash-chain caching, potrace tracing, core raster
-modules, parallel multi-color separation, progressive streaming) are done in the server repo, so
-the Vector slices are unblocked through M2. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for milestone
-sequencing and [`docs/architecture/design.md`](docs/architecture/design.md) for the full design.
-
-First target (M0, "Trace"): drop an image in, trace it with potrace, adjust live parameters,
-export the SVG.
+M0 ("Trace") is done and M1 is underway: drop a PNG, edit a reorderable raster stack
+(crop/rotate/levels/invert) over the pinned binarize + trace tail, watch the pre-processed
+source and traced SVG side by side (with a selectable preview backdrop), export the SVG.
+Remaining M1 work: A/B compare, packaged installer with server lifecycle management,
+interactive crop handles. See [`docs/ROADMAP.md`](docs/ROADMAP.md) for milestone sequencing,
+[`docs/architecture/design.md`](docs/architecture/design.md) for the full design, and
+[`PICKUP.md`](PICKUP.md) for where the last session left off.
 
 ## Getting Started
 
-Nothing to run yet. The UI stack (native shell + canvas library) is deliberately undecided and is
-the first ADR of M0 app code; build/run instructions land here with it.
-
-For development against the engine meanwhile, run the server from its own repo:
+Start the server from its own repo, then the client from here:
 
 ```
 # in ../formshift-server
@@ -35,6 +31,15 @@ uv run formshift-server --port 0
 # prints: formshift-server listening on http://127.0.0.1:<port>
 #         token: <bearer token>
 ```
+
+```
+# in this repo — installs dependencies on first run, then launches the dev app
+start.bat     # Windows
+./start.sh    # Linux/macOS
+```
+
+(Equivalent to `npm install && npm run dev`.) Paste the server's printed URL and token into the
+connect panel.
 
 ## Project Structure
 

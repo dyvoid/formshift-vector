@@ -34,14 +34,22 @@ the Milestones section of [docs/architecture/design.md](docs/architecture/design
   with token auth + sessions, DAG executor with hash-chain cache, potrace module, core raster
   modules, draft, multi-input merges, parallel per-color tracing, progressive streaming). The
   Vector slices of M0–M2 are unblocked.
+- **Invert layer + preview upgrades** (2026-07-18, validated on a real machine): `image.invert`
+  as a fourth raster module (param-less, data-only addition to `RASTER_LAYER_DEFS`); a
+  Default/Black/White/Transparent backdrop picker above the Trace figure (view-only local state
+  in Editor, CSS-only override of the checkerboard); the Source panel now shows the raster as
+  trace saw it — the graph taps the `image` port of the node feeding trace as a second output,
+  usePipeline downloads it alongside the SVG (`processedUrl` on the done state, same
+  revoke-on-supersede lifecycle), falling back to the raw drop when the stack is empty.
+  `start.bat`/`start.sh` at the root wrap install-if-needed + `npm run dev`.
 - No CI yet; add together with the stack toolchain.
 
 ## Next
 
-1. **M0/M1 validation on a real machine**: start the server (`uv run formshift-server
-   --port 0`), `npm install && npm run dev`, paste the printed URL + token into the connect
-   panel, and take a real design from PNG to production-ready SVG using only the app (M0 exit),
-   exercising the layer stack while at it.
+1. **M0/M1 validation on a real machine**: partially done — the app now runs on a real machine
+   against a live server (invert layer, backdrop picker, and pre-processed source preview all
+   confirmed working). Remaining: take a real design from PNG to production-ready SVG using only
+   the app (M0 exit).
 2. **Remaining M1 slice**: A/B compare; blend/opacity per the structural rule (**blocked on a
    server-side blend module** — the server has no image.blend; needs a server-repo task first);
    packaged installer with embedded Python + server lifecycle manager (needs a real machine);
@@ -83,4 +91,4 @@ human-review list or needs a design decision first. Evaluate next session:
   because it adds UI state, not because it's contested.
 
 ---
-*Last updated: 2026-07-13*
+*Last updated: 2026-07-18*
