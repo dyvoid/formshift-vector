@@ -5,9 +5,10 @@ instead of archaeology.
 
 ## Current focus
 
-**M2 (Color) stages 1–3 are implemented and live-verified** on branch `task/m2-color-trace`
-(2026-07-18, unmerged — awaiting review). The M2 exit condition is met: a 15/16-color trace
-renders progressively in the real app. Remaining M2 scope: the diff overlay (stage 4), planned
+**M2 (Color) stages 1–3 are merged to `main`** (2026-07-18, fast-forward of
+`task/m2-color-trace`, validated in real use). The M2 exit condition is met: a 15/16-color trace
+renders progressively in the real app. Known issue in real use: hairline seams between colors —
+see Next #1 (server-first fix). Remaining M2 scope: the diff overlay (stage 4), planned
 separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## State
@@ -48,9 +49,15 @@ separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## Next
 
-1. **Review + merge `task/m2-color-trace`** (6 commits: quantize stage, palette reader +
-   fan-out builders, two-phase execute, draft toggle, SSE parser, progressive rendering).
-   All 54 tests green incl. live integration; quality gate green per commit.
+1. **Seam hairlines between colors** (confirmed in real use, 2026-07-18, exactly as the
+   server-side ADR predicted): disjoint per-color masks are traced independently, so shared
+   boundaries don't produce identical curves and background peeks through as hairlines.
+   Fix is the deferred Option A: **server task first** — optional `grow: int = 0` param on
+   `image.colormask` (dilate mask by N px before output; additive contract change, wants a
+   short server ADR). Then client: thread `grow` into the `mask{i}` params in
+   `buildColorTraceGraph` and expose a "Seam overlap (px)" slider (0–4, default 1) in the
+   Quantize fieldset. Note: with overlap, merge-tree z-order becomes slightly meaningful
+   (later colors cover earlier at the overlap) — fine at 1–2 px.
 2. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): the last M2 item; measurement,
    not capability. Server-first — the client never touches pixels, so the metrics/diff raster
    need server modules before client work starts.
