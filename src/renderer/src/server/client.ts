@@ -108,6 +108,21 @@ export class FormshiftClient {
     return { data: await response.arrayBuffer(), type: response.headers.get('X-Formshift-Type') }
   }
 
+  /**
+   * Open the session's SSE event stream. The caller consumes the body via
+   * parseSseStream and tears down by aborting `signal` (there is no other
+   * way to close a fetch body early). One stream multiplexes all jobs in
+   * the session.
+   */
+  async openEvents(sessionId: string, signal?: AbortSignal): Promise<ReadableStream<Uint8Array>> {
+    const response = await this.request(`/v1/sessions/${sessionId}/events`, {
+      headers: { Accept: 'text/event-stream' },
+      signal
+    })
+    if (response.body === null) throw new ServerError(response.status, 'event stream has no body')
+    return response.body
+  }
+
   async submitJob(
     sessionId: string,
     graph: Graph,

@@ -61,6 +61,37 @@ export interface JobDoc {
   error?: string
 }
 
+// SSE event payloads on GET /v1/sessions/{sid}/events (server ADR 0007).
+// One stream per session, multiplexing all jobs — every payload carries the
+// job id. Discrimination happens on the SSE `event:` field at the consumer.
+
+export interface JobStatusEvent {
+  job: string
+  status: JobStatus
+}
+
+export interface NodeCompletedEvent {
+  job: string
+  node: string
+  cached: boolean
+}
+
+/** Emitted as each requested output materializes; `payload` is immediately
+ *  downloadable. The progressive-rendering signal. */
+export interface JobOutputEvent {
+  job: string
+  node: string
+  port: string
+  type: string
+  payload: string
+  group?: string
+}
+
+export interface JobFailedEvent {
+  job: string
+  error?: string
+}
+
 export interface PortSpec {
   name: string
   type: string
