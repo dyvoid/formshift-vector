@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildPipelineGraph } from './graph'
+import { buildColorTraceGraph, buildPipelineGraph, buildPosterizeGraph } from './graph'
 import type { Pipeline, RasterLayer } from './model'
 import { DEFAULT_PIPELINE } from './model'
 
@@ -122,5 +122,138 @@ describe('buildPipelineGraph', () => {
     // width omitted at its 0 sentinel (server crops to the edge); y falls
     // back to its default; height passes through.
     expect(graph.nodes[0].params).toEqual({ x: 10, y: 0, height: 120 })
+  })
+})
+
+function posterizePipeline(colors: number, partial: Partial<Pipeline> = {}): Pipeline {
+  return pipeline({ quantize: { mode: 'posterize', level: 128, colors }, ...partial })
+}
+
+describe('buildPosterizeGraph', () => {
+  it('chains enabled layers into a posterize node and outputs its image', () => {
+    const graph = buildPosterizeGraph(
+      'P1',
+      posterizePipeline(4, { layers: [layer('a', 'image.rotate', { angle: 90 })] })
+    )
+    expect(graph.nodes).toEqual([
+      { id: 'a', module: 'image.rotate', params: { angle: 90 } },
+      { id: 'post', module: 'image.posterize', params: { colors: 4 } }
+    ])
+    expect(graph.edges).toEqual([
+      { from_node: 'a', from_port: 'image', to_node: 'post', to_port: 'image' }
+    ])
+    expect(graph.bindings).toEqual([{ payload: 'P1', node: 'a', port: 'image' }])
+    expect(graph.outputs).toEqual([{ node: 'post', port: 'image' }])
+  })
+
+  it('an empty stack binds the source straight to posterize', () => {
+    const graph = buildPosterizeGraph('P1', posterizePipeline(8))
+    expect(graph.nodes).toEqual([{ id: 'post', module: 'image.posterize', params: { colors: 8 } }])
+    expect(graph.bindings).toEqual([{ payload: 'P1', node: 'post', port: 'image' }])
+  })
+})
+
+describe('buildColorTraceGraph', () => {
+  const PALETTE_2 = ['#ff0000', '#00ff00'] as const
+
+  it('fans out one mask → trace → colorize branch per palette entry (N=2)', () => {
+    const { graph, merged, branches } = buildColorTraceGraph('P1', posterizePipeline(2), PALETTE_2)
+    expect(graph.nodes).toEqual([
+      { id: 'post', module: 'image.posterize', params: { colors: 2 } },
+      { id: 'mask0', module: 'image.colormask', params: { index: 0 } },
+      { id: 'trace0', module: 'potrace.trace', params: { blacklevel: 0.5, turdsize: 2 } },
+      { id: 'color0', module: 'svg.colorize', params: { fill: '#ff0000' } },
+      { id: 'mask1', module: 'image.colormask', params: { index: 1 } },
+      { id: 'trace1', module: 'potrace.trace', params: { blacklevel: 0.5, turdsize: 2 } },
+      { id: 'color1', module: 'svg.colorize', params: { fill: '#00ff00' } },
+      { id: 'merge0', module: 'svg.merge', params: {} }
+    ])
+    expect(graph.edges).toEqual([
+      { from_node: 'post', from_port: 'image', to_node: 'mask0', to_port: 'image' },
+      // colormask outputs on port 'mask', not 'image'.
+      { from_node: 'mask0', from_port: 'mask', to_node: 'trace0', to_port: 'image' },
+      { from_node: 'trace0', from_port: 'svg', to_node: 'color0', to_port: 'svg' },
+      { from_node: 'post', from_port: 'image', to_node: 'mask1', to_port: 'image' },
+      { from_node: 'mask1', from_port: 'mask', to_node: 'trace1', to_port: 'image' },
+      { from_node: 'trace1', from_port: 'svg', to_node: 'color1', to_port: 'svg' },
+      { from_node: 'color0', from_port: 'svg', to_node: 'merge0', to_port: 'under' },
+      { from_node: 'color1', from_port: 'svg', to_node: 'merge0', to_port: 'over' }
+    ])
+    expect(graph.bindings).toEqual([{ payload: 'P1', node: 'post', port: 'image' }])
+    expect(merged).toEqual({ node: 'merge0', port: 'svg' })
+    expect(branches).toEqual([
+      { node: 'color0', fill: '#ff0000' },
+      { node: 'color1', fill: '#00ff00' }
+    ])
+    expect(graph.outputs).toEqual([
+      { node: 'merge0', port: 'svg' },
+      { node: 'color0', port: 'svg' },
+      { node: 'color1', port: 'svg' }
+    ])
+  })
+
+  it('carries an odd leftover branch into the next merge round (N=3)', () => {
+    const { graph, merged } = buildColorTraceGraph('P1', posterizePipeline(3), [
+      '#000000',
+      '#808080',
+      '#ffffff'
+    ])
+    const merges = graph.nodes.filter((n) => n.module === 'svg.merge').map((n) => n.id)
+    expect(merges).toEqual(['merge0', 'merge1'])
+    expect(graph.edges).toEqual(
+      expect.arrayContaining([
+        { from_node: 'color0', from_port: 'svg', to_node: 'merge0', to_port: 'under' },
+        { from_node: 'color1', from_port: 'svg', to_node: 'merge0', to_port: 'over' },
+        { from_node: 'merge0', from_port: 'svg', to_node: 'merge1', to_port: 'under' },
+        { from_node: 'color2', from_port: 'svg', to_node: 'merge1', to_port: 'over' }
+      ])
+    )
+    expect(merged).toEqual({ node: 'merge1', port: 'svg' })
+  })
+
+  it('reduces five branches over two rounds (N=5)', () => {
+    const { graph, merged } = buildColorTraceGraph('P1', posterizePipeline(5), [
+      '#111111',
+      '#222222',
+      '#333333',
+      '#444444',
+      '#555555'
+    ])
+    // Round 1: merge0(c0,c1), merge1(c2,c3), c4 carried; round 2:
+    // merge2(merge0, merge1), carried c4; round 3: merge3(merge2, c4).
+    expect(graph.edges).toEqual(
+      expect.arrayContaining([
+        { from_node: 'merge0', from_port: 'svg', to_node: 'merge2', to_port: 'under' },
+        { from_node: 'merge1', from_port: 'svg', to_node: 'merge2', to_port: 'over' },
+        { from_node: 'merge2', from_port: 'svg', to_node: 'merge3', to_port: 'under' },
+        { from_node: 'color4', from_port: 'svg', to_node: 'merge3', to_port: 'over' }
+      ])
+    )
+    expect(merged).toEqual({ node: 'merge3', port: 'svg' })
+  })
+
+  it('a single palette entry needs no merge and no duplicate output', () => {
+    const { graph, merged, branches } = buildColorTraceGraph('P1', posterizePipeline(2), [
+      '#123456'
+    ])
+    expect(graph.nodes.some((n) => n.module === 'svg.merge')).toBe(false)
+    expect(merged).toEqual({ node: 'color0', port: 'svg' })
+    expect(branches).toEqual([{ node: 'color0', fill: '#123456' }])
+    expect(graph.outputs).toEqual([{ node: 'color0', port: 'svg' }])
+  })
+
+  it('shares the raster stack and trace params across branches', () => {
+    const { graph } = buildColorTraceGraph(
+      'P1',
+      posterizePipeline(2, {
+        layers: [layer('a', 'image.levels', { black: 10, white: 240, gamma: 1 })],
+        trace: { blacklevel: 0.7, turdsize: 5 }
+      }),
+      ['#000000', '#ffffff']
+    )
+    expect(graph.bindings).toEqual([{ payload: 'P1', node: 'a', port: 'image' }])
+    const traces = graph.nodes.filter((n) => n.module === 'potrace.trace')
+    expect(traces).toHaveLength(2)
+    for (const t of traces) expect(t.params).toEqual({ blacklevel: 0.7, turdsize: 5 })
   })
 })
