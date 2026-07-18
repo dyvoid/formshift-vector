@@ -95,5 +95,5 @@ bundles the runtime and the app owns spawn/shutdown.
 ## Decisions
 
 The reasoning behind specific choices lives in the [ADR log](../adr/). Start there before changing
-anything structural. The UI stack (shell, canvas library) is deliberately undecided; picking it is
-ADR material and the first task of M0 app code.
+anything structural. The UI stack (Electron shell, Fabric.js canvas) is decided —
+[ADR 0002](../adr/0002-ui-stack-electron-fabricjs.md).

@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "description": "Non-destructive raster-to-vector tracing app for print and general design work. Client of Formshift Server.",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "main": "./out/main/index.js",
   "scripts": {
     "dev": "electron-vite dev",

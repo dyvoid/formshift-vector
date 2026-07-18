@@ -166,11 +166,10 @@ decides the delivery order.
 
 ## Packaging and tech stack
 
-- **UI shell**: web frontend (canvas interaction library, Fabric.js or Konva) wrapped in a native
-  container (Electron or similar). Presentation and interaction only; all processing routes
-  through Formshift Server's API. The shell choice is Vector's alone and implies nothing about the
-  server. The concrete choice of shell and canvas library is an open decision, recorded as an ADR
-  when made (first task of M0 app code).
+- **UI shell**: web frontend (Fabric.js for canvas interaction) wrapped in a native container
+  (Electron). Presentation and interaction only; all processing routes through Formshift Server's
+  API. The shell choice is Vector's alone and implies nothing about the server. Decided in
+  [ADR 0002](../adr/0002-ui-stack-electron-fabricjs.md).
 - **Embedded runtime**: Vector bundles its own Python interpreter and the Formshift Server package
   inside the installer, spawns the server on launch, captures the port and auth token, and shuts
   it down on exit. End users never see Python. Real forum evidence shows ordinary users fighting
@@ -283,9 +282,6 @@ multi-color output makes fidelity hardest to eyeball.
 
 ## Open risks (client side)
 
-- The UI stack (shell, canvas library) is unchosen; the choice is load-bearing for packaging
-  complexity and interaction latency and must be recorded as an ADR before app code accretes
-  around a default.
 - Bundling a Python runtime inside a native app shell adds real packaging complexity versus a
   pure-JS stack.
 - Enforcing or softly discouraging invalid raster-stack orderings (across the binarize boundary)
