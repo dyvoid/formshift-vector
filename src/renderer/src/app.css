@@ -294,16 +294,39 @@ input {
   background: repeating-conic-gradient(#23262d 0% 25%, #1a1d23 0% 50%) 0 0 / 24px 24px;
 }
 
-/* Trace-only backdrop override — preview purposes only, does not affect export */
-.trace-column figure.bg-black img {
+/* Progressive per-color layers: absolutely stacked over one shared surface.
+   The container owns the backdrop; the stacked imgs stay transparent so
+   lower layers show through. */
+.color-progress {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  background: repeating-conic-gradient(#23262d 0% 25%, #1a1d23 0% 50%) 0 0 / 24px 24px;
+}
+
+.preview .color-progress img {
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  background: none;
+}
+
+/* Trace-only backdrop override — preview purposes only, does not affect
+   export. Direct children only: the stacked color-progress imgs must not
+   pick up an opaque background each. */
+.trace-column figure.bg-black > img,
+.trace-column figure.bg-black > .color-progress {
   background: #000;
 }
 
-.trace-column figure.bg-white img {
+.trace-column figure.bg-white > img,
+.trace-column figure.bg-white > .color-progress {
   background: #fff;
 }
 
-.trace-column figure.bg-transparent img {
+.trace-column figure.bg-transparent > img,
+.trace-column figure.bg-transparent > .color-progress {
   background: none;
 }
 

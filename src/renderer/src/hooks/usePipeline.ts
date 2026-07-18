@@ -10,7 +10,14 @@ import { LatestGate } from '../interaction/latest'
 import { buildColorTraceGraph, buildPipelineGraph, buildPosterizeGraph } from '../pipeline/graph'
 import type { Pipeline } from '../pipeline/model'
 import { FormshiftClient } from '../server/client'
-import type { ConnectionInfo, Graph, JobOutput } from '../server/types'
+import { parseSseStream } from '../server/sse'
+import type {
+  ConnectionInfo,
+  Graph,
+  JobFailedEvent,
+  JobOutput,
+  JobOutputEvent
+} from '../server/types'
 
 export interface SourceImage {
   name: string
@@ -19,9 +26,20 @@ export interface SourceImage {
   previewUrl: string
 }
 
+/** One per-color trace result, streamed in while a posterize run executes. */
+export interface ColorLayer {
+  node: string
+  url: string
+}
+
 export type PipelineState =
   | { phase: 'idle' }
-  | { phase: 'running' }
+  | {
+      phase: 'running'
+      /** Per-color layers arriving over SSE, in completion order — safe to
+       *  stack unordered because the color masks are disjoint. */
+      colorLayers?: ColorLayer[]
+    }
   | {
       phase: 'done'
       svg: string
@@ -100,7 +118,8 @@ async function runColor(
   payloadId: string,
   pipeline: Pipeline,
   draft: boolean,
-  signal: AbortSignal
+  signal: AbortSignal,
+  onLayer: (layer: ColorLayer) => void
 ): Promise<RunResult> {
   // Phase 1: palette discovery. The palette only exists inside posterize's
   // output PNG, so a cheap posterize-only job runs first; phase 2 re-runs
@@ -117,14 +136,65 @@ async function runColor(
   const { data: postBytes } = await client.downloadPayload(sessionId, post.payload, signal)
   const palette = readPngPalette(postBytes)
 
-  // Phase 2: the full fan-out. The posterized PNG doubles as the source
-  // preview — it is exactly what the per-color tracers saw.
-  const { graph, merged } = buildColorTraceGraph(payloadId, pipeline, palette)
-  const outputs = await runJob(client, sessionId, graph, draft, signal)
-  const out = outputs.find((o) => o.node === merged.node && o.port === merged.port)
-  if (out === undefined) throw new Error('color trace completed without a merged svg output')
-  const { data } = await client.downloadPayload(sessionId, out.payload, signal)
-  return { svg: new TextDecoder().decode(data), processed: postBytes }
+  // Phase 2: the full fan-out, consumed progressively over SSE. The
+  // posterized PNG doubles as the source preview — it is exactly what the
+  // per-color tracers saw.
+  const { graph, merged, branches } = buildColorTraceGraph(payloadId, pipeline, palette)
+  const branchNodes = new Set(branches.map((b) => b.node))
+
+  // The stream can only be closed by aborting its fetch, so it gets its own
+  // controller, linked to the run's signal and always aborted on the way out.
+  const events = new AbortController()
+  const onAbort = (): void => events.abort()
+  signal.addEventListener('abort', onAbort, { once: true })
+  try {
+    // Open the stream before submitting: early events buffer in the response
+    // stream, so nothing is missed and no client-side event buffer exists.
+    const body = await client.openEvents(sessionId, events.signal)
+    const jobId = await client.submitJob(sessionId, graph, { draft, signal })
+
+    let mergedPayload: string | undefined
+    let completed = false
+    for await (const event of parseSseStream(body)) {
+      if (event.event === 'job.output') {
+        const output = JSON.parse(event.data) as JobOutputEvent
+        if (output.job !== jobId) continue
+        if (output.node === merged.node && output.port === merged.port) {
+          mergedPayload = output.payload
+        } else if (branchNodes.has(output.node) && output.port === 'svg') {
+          const { data } = await client.downloadPayload(sessionId, output.payload, signal)
+          if (signal.aborted) break
+          const url = URL.createObjectURL(new Blob([data], { type: 'image/svg+xml' }))
+          onLayer({ node: output.node, url })
+        }
+      } else if (event.event === 'job.completed') {
+        if ((JSON.parse(event.data) as { job: string }).job !== jobId) continue
+        completed = true
+        break
+      } else if (event.event === 'job.failed' || event.event === 'job.cancelled') {
+        const payload = JSON.parse(event.data) as JobFailedEvent
+        if (payload.job !== jobId) continue
+        throw new Error(payload.error ?? `job ${event.event.slice('job.'.length)}`)
+      }
+    }
+
+    // Backstop: if the stream died before a terminal event (dropped
+    // connection), fall back to polling — strictly after the stream ended,
+    // so the two never race.
+    if (!completed || mergedPayload === undefined) {
+      const job = await client.waitForJob(sessionId, jobId, { signal })
+      if (job.status !== 'completed') throw new Error(job.error ?? `job ${job.status}`)
+      const out = job.outputs?.find((o) => o.node === merged.node && o.port === merged.port)
+      if (out === undefined) throw new Error('color trace completed without a merged svg output')
+      mergedPayload = out.payload
+    }
+
+    const { data } = await client.downloadPayload(sessionId, mergedPayload, signal)
+    return { svg: new TextDecoder().decode(data), processed: postBytes }
+  } finally {
+    signal.removeEventListener('abort', onAbort)
+    events.abort()
+  }
 }
 
 export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipeline {
@@ -142,6 +212,10 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
   const svgUrlRef = useRef<string | undefined>(undefined)
   // Same lifecycle for the pre-processed raster preview.
   const processedUrlRef = useRef<string | undefined>(undefined)
+  // Progressive per-color layer URLs; drained (revoked) when the latest run
+  // reaches a terminal state. Superseded runs stop appending via their
+  // aborted signal, so the drain never races an append.
+  const partialUrlsRef = useRef<string[]>([])
 
   const execute = useCallback(
     (payloadId: string, pipeline: Pipeline, options?: RunOptions): void => {
@@ -149,14 +223,37 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
       // Keep the previous result visible while re-running; only show the
       // busy placeholder when there is nothing to show yet.
       setState((previous) => (previous.phase === 'done' ? previous : { phase: 'running' }))
+      const drainPartials = (): void => {
+        for (const url of partialUrlsRef.current) URL.revokeObjectURL(url)
+        partialUrlsRef.current = []
+      }
       void gate
-        .run('pipeline', (signal) =>
-          pipeline.quantize.mode === 'posterize'
-            ? runColor(client, sessionId, payloadId, pipeline, draft, signal)
-            : runMono(client, sessionId, payloadId, pipeline, draft, signal)
-        )
+        .run('pipeline', (signal) => {
+          if (pipeline.quantize.mode !== 'posterize') {
+            return runMono(client, sessionId, payloadId, pipeline, draft, signal)
+          }
+          const onLayer = (layer: ColorLayer): void => {
+            if (signal.aborted) {
+              URL.revokeObjectURL(layer.url)
+              return
+            }
+            partialUrlsRef.current.push(layer.url)
+            // Only transition into (or extend) the running phase — a first
+            // layer replaces the previous done result on screen, later ones
+            // append in completion order.
+            setState((previous) => ({
+              phase: 'running',
+              colorLayers: [
+                ...(previous.phase === 'running' ? (previous.colorLayers ?? []) : []),
+                layer
+              ]
+            }))
+          }
+          return runColor(client, sessionId, payloadId, pipeline, draft, signal, onLayer)
+        })
         .then((result) => {
           if (result === undefined) return
+          drainPartials()
           const { svg, processed } = result
           const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
           if (svgUrlRef.current !== undefined) URL.revokeObjectURL(svgUrlRef.current)
@@ -171,6 +268,7 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
           setState({ phase: 'done', svg, svgUrl, processedUrl })
         })
         .catch((error: unknown) => {
+          drainPartials()
           setState({
             phase: 'error',
             message: error instanceof Error ? error.message : String(error)

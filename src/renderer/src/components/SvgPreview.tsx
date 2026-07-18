@@ -29,6 +29,10 @@ export function SvgPreview({ source, state, previewBg, onPreviewBgChange }: Prop
   // Show the raster as trace saw it (post pre-processing); the raw drop is
   // the fallback until a result arrives or when the stack is empty.
   const processedUrl = state.phase === 'done' ? state.processedUrl : undefined
+  // Per-color layers streaming in during a posterize run; stacked unordered
+  // (completion order) because the color masks are disjoint. The merged SVG
+  // replaces the stack on done.
+  const colorLayers = state.phase === 'running' ? (state.colorLayers ?? []) : []
 
   return (
     <div className="preview">
@@ -52,6 +56,12 @@ export function SvgPreview({ source, state, previewBg, onPreviewBgChange }: Prop
         <figure className={`bg-${previewBg}${state.phase === 'running' ? ' busy' : ''}`}>
           {svgUrl !== undefined ? (
             <img src={svgUrl} alt="Traced SVG" />
+          ) : colorLayers.length > 0 ? (
+            <div className="color-progress" aria-label="Color layers arriving">
+              {colorLayers.map((layer) => (
+                <img key={layer.node} src={layer.url} alt="" />
+              ))}
+            </div>
           ) : (
             <div className="placeholder">
               {state.phase === 'error' ? `Trace failed: ${state.message}` : 'Tracing…'}
