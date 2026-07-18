@@ -7,6 +7,8 @@
 import { describe, expect, it } from 'vitest'
 import { readPngPalette } from '../image/pngPalette'
 import { FormshiftClient } from '../server/client'
+import { parseSseStream } from '../server/sse'
+import type { JobOutputEvent } from '../server/types'
 import { buildColorTraceGraph, buildPosterizeGraph } from './graph'
 import type { Pipeline } from './model'
 import { DEFAULT_PIPELINE } from './model'
@@ -93,6 +95,63 @@ describe.skipIf(!live)('color tracing against a live server', () => {
         expect(branchOut).toBeDefined()
       }
     } finally {
+      await client.deleteSession(sessionId)
+    }
+  })
+
+  it('streams per-color outputs over SSE before the job completes', async () => {
+    const sessionId = await client.createSession()
+    const events = new AbortController()
+    try {
+      const payloadId = await client.uploadPayload(sessionId, 'raster/png', testColorPng())
+      const pipeline = posterizePipeline(4)
+
+      const postGraph = buildPosterizeGraph(payloadId, pipeline)
+      const postJobId = await client.submitJob(sessionId, postGraph)
+      const postJob = await client.waitForJob(sessionId, postJobId)
+      const post = postJob.outputs?.find((o) => o.node === 'post' && o.port === 'image')
+      const { data: postBytes } = await client.downloadPayload(sessionId, post?.payload ?? '')
+      const palette = readPngPalette(postBytes)
+
+      const { graph, merged, branches } = buildColorTraceGraph(payloadId, pipeline, palette)
+      const branchNodes = new Set(branches.map((b) => b.node))
+
+      // Stream open before submit, exactly as usePipeline does it.
+      const body = await client.openEvents(sessionId, events.signal)
+      const jobId = await client.submitJob(sessionId, graph)
+
+      const branchOutputs: JobOutputEvent[] = []
+      let mergedPayload: string | undefined
+      let completed = false
+      for await (const event of parseSseStream(body)) {
+        if (event.event === 'job.output') {
+          const output = JSON.parse(event.data) as JobOutputEvent
+          if (output.job !== jobId) continue
+          if (output.node === merged.node) mergedPayload = output.payload
+          else if (branchNodes.has(output.node)) branchOutputs.push(output)
+        } else if (event.event === 'job.completed') {
+          if ((JSON.parse(event.data) as { job: string }).job !== jobId) continue
+          completed = true
+          break
+        } else if (event.event === 'job.failed') {
+          throw new Error(`job failed: ${event.data}`)
+        }
+      }
+
+      // Progressive delivery: per-branch outputs arrived on the stream before
+      // the terminal event, and their payloads download immediately.
+      expect(completed).toBe(true)
+      expect(branchOutputs.length).toBeGreaterThanOrEqual(1)
+      const { data: branchSvg } = await client.downloadPayload(sessionId, branchOutputs[0].payload)
+      expect(new TextDecoder().decode(branchSvg)).toContain('<svg')
+
+      // The SSE-announced merged payload matches the polled job document's.
+      expect(mergedPayload).toBeDefined()
+      const doc = await client.getJob(sessionId, jobId)
+      const polled = doc.outputs?.find((o) => o.node === merged.node && o.port === merged.port)
+      expect(polled?.payload).toBe(mergedPayload)
+    } finally {
+      events.abort()
       await client.deleteSession(sessionId)
     }
   })

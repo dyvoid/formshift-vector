@@ -5,11 +5,10 @@ instead of archaeology.
 
 ## Current focus
 
-**M2 (Color) is the active milestone**, re-prioritized ahead of M1's remainder on 2026-07-18:
-color output matters more than the installer/crop handles/A/B compare, and most real designs are
-multi-color, so M2 is also the practical path to M0's exit condition. Staging and rationale in
-[docs/ROADMAP.md](docs/ROADMAP.md); milestone definitions in the Milestones section of
-[docs/architecture/design.md](docs/architecture/design.md).
+**M2 (Color) stages 1–3 are implemented and live-verified** on branch `task/m2-color-trace`
+(2026-07-18, unmerged — awaiting review). The M2 exit condition is met: a 15/16-color trace
+renders progressively in the real app. Remaining M2 scope: the diff overlay (stage 4), planned
+separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## State
 
@@ -49,28 +48,36 @@ multi-color, so M2 is also the practical path to M0's exit condition. Staging an
 
 ## Next
 
-1. **M2 stage 1 — posterized color tracing, non-progressive**: generalize the pipeline model's
-   pinned tail (binarize becomes the 2-color case of a quantize stage with a color count),
-   fan-out in `buildPipelineGraph` (posterize → N× colormask→trace branches; the current builder
-   assumes one linear chain), module names/ports read from the server's manifests (`listModules`)
-   instead of hard-coded. Delivered through the existing poll-until-terminal path — color output
-   lands here.
-2. **M2 stage 2 — draft toggle**: nearly free; `submitJob` already plumbs the `draft` flag,
-   nothing sets it. A checkbox next to throttle/commit-only.
-3. **M2 stage 3 — progressive rendering**: SSE consumer in the client (none exists — the client
-   is poll-only today) surfacing per-node outputs as they complete, plus completion-order
-   compositing of per-color layers in the preview. This is the M2 exit condition (16-color trace
-   renders progressively). Correct without ordering logic because per-color masks are disjoint
-   per the server-side ADR.
-4. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): measurement, not capability;
-   last.
-5. **M0 exit**, best attempted once color works: take a real (multi-color) design from image to
+1. **Review + merge `task/m2-color-trace`** (6 commits: quantize stage, palette reader +
+   fan-out builders, two-phase execute, draft toggle, SSE parser, progressive rendering).
+   All 54 tests green incl. live integration; quality gate green per commit.
+2. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): the last M2 item; measurement,
+   not capability. Server-first — the client never touches pixels, so the metrics/diff raster
+   need server modules before client work starts.
+3. **M0 exit**, now unblocked: take a real (multi-color) design from image to
    production-ready SVG using only the app.
-6. **Parked M1 remainder** (after M2): packaged installer with embedded Python + server lifecycle
+4. **Parked M1 remainder** (after M2): packaged installer with embedded Python + server lifecycle
    manager (also the natural owner of the deferred session-cleanup/reconnect findings below);
    interactive crop handles (first real Fabric.js use — the current crop layer UI is numeric
    sliders). Blend/opacity remains blocked on a server-side blend module. A/B compare demoted to
    roadmap Candidate.
+
+### M2 implementation notes (2026-07-18)
+
+- **Palette flow**: the palette only exists inside posterize's output (palette-mode PNG), so the
+  posterize path is two jobs — palette discovery, then the fan-out; the re-run is a server cache
+  hit. `image/pngPalette.ts` reads the PLTE chunk client-side (transport decode, not processing).
+  The used-indices-are-0..N-1 assumption is pinned by `color.integration.test.ts`.
+- **SSE**: `EventSource` can't send the Authorization header, so `server/sse.ts` parses the
+  fetch body directly. The stream opens *before* job submit (early events buffer in the
+  response); a poll backstop covers a stream that dies pre-terminal, strictly sequential.
+- **CORS gotcha**: a browser-context renderer (dev preview) needs the server started with
+  `--cors-origin http://localhost:5173`; without it, connect fails as a bare "Failed to fetch".
+  Worth noting for the M1 lifecycle manager. The Electron shell in production loads via file://
+  and may need its own answer here — untested.
+- **Verified live**: 15-layer progressive stack observed via MutationObserver timeline, then the
+  merged swap; merged result 97% pixel-match against the posterized source (sampling compare);
+  draft toggle re-runs immediately. Colors slider soft-capped at 32 in the UI (server allows 256).
 
 ## Open questions
 
@@ -108,4 +115,4 @@ human-review list or needs a design decision first. Evaluate next session:
   because it adds UI state, not because it's contested.
 
 ---
-*Last updated: 2026-07-18*
+*Last updated: 2026-07-18 (M2 stages 1–3 landed)*
