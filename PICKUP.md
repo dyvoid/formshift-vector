@@ -58,7 +58,15 @@ separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
    `buildColorTraceGraph` and expose a "Seam overlap (px)" slider (0–4, default 1) in the
    Quantize fieldset. Note: with overlap, merge-tree z-order becomes slightly meaningful
    (later colors cover earlier at the overlap) — fine at 1–2 px.
-2. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): the last M2 item; measurement,
+2. **Palette control** (Planned, see ROADMAP): posterize's frequency-based clustering drops
+   small-but-important regions (real case 2026-07-18: a cat's green eyes never survive even at
+   32 colors). Server task first — `image.posterize` gains an optional explicit `palette`
+   param (nearest-color mapping, no clustering; additive contract change, wants an ADR;
+   optionally upgrade the default quantizer to libimagequant-class while in there). Then
+   client: palette swatch editor + eyedropper on the source preview, layered onto the existing
+   two-phase flow (phase 1 proposes a palette, user pins/adds/removes, phase 2 runs with the
+   explicit palette). Foundation for M4 spot colors.
+3. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): the last M2 item; measurement,
    not capability. Server-first — the client never touches pixels, so the metrics/diff raster
    need server modules before client work starts.
 3. **M0 exit**, now unblocked: take a real (multi-color) design from image to
