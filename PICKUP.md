@@ -7,9 +7,14 @@ instead of archaeology.
 
 **M2 (Color) stages 1–3 are merged to `main`** (2026-07-18, fast-forward of
 `task/m2-color-trace`, validated in real use). The M2 exit condition is met: a 15/16-color trace
-renders progressively in the real app. The hairline-seam issue is now fixed (colormask `grow`,
-2026-07-19) and palette control has landed alongside it — see State. Remaining M2 scope: the diff
-overlay (stage 4), planned separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
+renders progressively in the real app. The hairline-seam issue is fixed (colormask `grow`,
+2026-07-19), and palette control has landed with a follow-up UX pass (`fix/palette-editor-ux`,
+2026-07-19) — see State. The unused-palette-index gap that briefly blocked full use of custom
+palettes (a pinned color matching no pixel failed the whole trace) is **fixed server-side**
+(`formshift-server` ADR 0022, 2026-07-19) and verified live: a 32-entry palette on a 4-color test
+image now traces cleanly. The palette editor's UX is not considered fully settled (see Open
+questions) — revisit if it keeps bothering real use. Remaining M2 scope: the diff overlay
+(stage 4), planned separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## State
 
@@ -59,6 +64,26 @@ overlay (stage 4), planned separately. Staging and rationale in [docs/ROADMAP.md
   surfaced on the pipeline done-state (`palette?`) so the editor can propose it. Verified end to
   end against a live server: removing blue from the four-quadrant test image remapped its pixels
   to the nearest remaining color in both the pre-processed source and the traced SVG.
+- **Palette editor UX fixes** (2026-07-19, `fix/palette-editor-ux`): real-use follow-up to the
+  above. `useCustomPalette: boolean` added to `QuantizeSettings` so custom mode is a remembered
+  toggle, not a one-way door — "Use auto palette" leaves custom mode *keeping* the edited
+  palette (the palette itself was already remembered-while-off; the mode wasn't), "Use custom
+  palette" restores it; leaving also syncs `colors` to the palette length so the auto slider
+  resumes near where the user left off instead of snapping back. The eyedropper now forces the
+  source figure to show the original raster while open (`SvgPreview`'s `showOriginal` prop) —
+  the pre-processed preview has already lost the colors the user is trying to pin, which made
+  "Pick from image" a no-op. `pipeline/palette.ts` gained `nextSwatch`, a deterministic
+  hue/lightness sweep so "+ Add" always inserts a color not already in the palette — it
+  previously always inserted `#808080`, so every add after the first silently deduped away.
+  Palette editor shows an entry-count note and flags the 32 cap.
+- **Colormask unused-index fix** (server-side, `formshift-server` ADR 0022, 2026-07-19): this
+  session also surfaced that a custom-palette entry matching no pixel made `image.colormask`
+  reject the whole trace (`index N not present in image`) — two server contracts had disagreed
+  since ADR 0020 shipped (median-cut's every-index-used assumption vs. an explicit palette's
+  right to carry unused entries). Fixed same-day in the server repo: an in-range unused index now
+  yields an empty (all-white) mask instead of raising; bounds check unchanged. No client change
+  needed — Vector already sent this shape. Verified live end to end post-fix (32-entry palette,
+  4-color image, clean trace) and via `formshift-server`'s own e2e suite.
 - No CI yet; add together with the stack toolchain.
 
 ## Next
@@ -93,6 +118,10 @@ overlay (stage 4), planned separately. Staging and rationale in [docs/ROADMAP.md
 
 ## Open questions
 
+- Palette editor UX (2026-07-19): the follow-up pass fixed concrete bugs (see State), but the
+  overall interaction — mode toggle + swatch grid + separate seam slider all in one fieldset —
+  hasn't been reviewed for whether it's the right shape, only whether it works. Revisit with
+  fresh eyes before treating the editor as finished.
 - Dev-mode server connection ergonomics: answered for M0 with a connect panel (paste URL +
   token, persisted in localStorage). The M1 lifecycle manager replaces it for packaged builds;
   keep the panel as a dev/remote-server escape hatch?
@@ -127,4 +156,5 @@ human-review list or needs a design decision first. Evaluate next session:
   because it adds UI state, not because it's contested.
 
 ---
-*Last updated: 2026-07-19 (palette control + seam overlap landed)*
+*Last updated: 2026-07-19 (palette control + seam overlap landed; editor UX fixes and the
+server-side unused-index fix followed same-day)*
