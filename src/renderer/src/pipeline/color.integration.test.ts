@@ -32,7 +32,7 @@ function testColorPng(): Uint8Array<ArrayBuffer> {
 }
 
 function posterizePipeline(colors: number): Pipeline {
-  return { ...DEFAULT_PIPELINE, quantize: { mode: 'posterize', level: 128, colors } }
+  return { ...DEFAULT_PIPELINE, quantize: { mode: 'posterize', level: 128, colors, grow: 0 } }
 }
 
 describe.skipIf(!live)('color tracing against a live server', () => {
@@ -94,6 +94,54 @@ describe.skipIf(!live)('color tracing against a live server', () => {
         const branchOut = job.outputs?.find((o) => o.node === branch.node && o.port === 'svg')
         expect(branchOut).toBeDefined()
       }
+    } finally {
+      await client.deleteSession(sessionId)
+    }
+  })
+
+  it('an explicit palette round-trips through posterize in supplied order', async () => {
+    const sessionId = await client.createSession()
+    try {
+      const payloadId = await client.uploadPayload(sessionId, 'raster/png', testColorPng())
+      const pipeline = posterizePipeline(4)
+      // Deliberately not the image's colors and not frequency-ordered: the
+      // server must emit this exact list, in this exact order, as the PLTE
+      // (server ADR 0020).
+      pipeline.quantize.palette = ['#123456', '#ff0000', '#00ff00']
+      const graph = buildPosterizeGraph(payloadId, pipeline)
+      const jobId = await client.submitJob(sessionId, graph)
+      const job = await client.waitForJob(sessionId, jobId)
+      expect(job.status).toBe('completed')
+      const output = job.outputs?.find((o) => o.node === 'post' && o.port === 'image')
+      const { data } = await client.downloadPayload(sessionId, output?.payload ?? '')
+      expect(readPngPalette(data)).toEqual(['#123456', '#ff0000', '#00ff00'])
+    } finally {
+      await client.deleteSession(sessionId)
+    }
+  })
+
+  it('a grown colormask fan-out completes into a merged SVG', async () => {
+    const sessionId = await client.createSession()
+    try {
+      const payloadId = await client.uploadPayload(sessionId, 'raster/png', testColorPng())
+      const pipeline = posterizePipeline(4)
+      pipeline.quantize.grow = 2
+
+      const postGraph = buildPosterizeGraph(payloadId, pipeline)
+      const postJobId = await client.submitJob(sessionId, postGraph)
+      const postJob = await client.waitForJob(sessionId, postJobId)
+      const post = postJob.outputs?.find((o) => o.node === 'post' && o.port === 'image')
+      const { data: postBytes } = await client.downloadPayload(sessionId, post?.payload ?? '')
+      const palette = readPngPalette(postBytes)
+
+      const { graph, merged } = buildColorTraceGraph(payloadId, pipeline, palette)
+      const jobId = await client.submitJob(sessionId, graph)
+      const job = await client.waitForJob(sessionId, jobId)
+      expect(job.status).toBe('completed')
+      const out = job.outputs?.find((o) => o.node === merged.node && o.port === merged.port)
+      expect(out).toBeDefined()
+      const { data } = await client.downloadPayload(sessionId, out?.payload ?? '')
+      expect(new TextDecoder().decode(data)).toContain('<svg')
     } finally {
       await client.deleteSession(sessionId)
     }

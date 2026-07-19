@@ -47,6 +47,9 @@ export type PipelineState =
       /** The raster as trace saw it (post pre-processing); absent when the
        *  source went into trace untouched. */
       processedUrl?: string
+      /** The palette a posterize run actually used (discovered or explicit),
+       *  in index order; absent for mono runs. */
+      palette?: string[]
     }
   | { phase: 'error'; message: string }
 
@@ -68,6 +71,8 @@ interface RunResult {
   svg: string
   /** PNG bytes of the raster as trace saw it; absent when untouched. */
   processed?: ArrayBuffer
+  /** Palette used by a posterize run, in index order; absent for mono. */
+  palette?: string[]
 }
 
 async function runJob(
@@ -190,7 +195,7 @@ async function runColor(
     }
 
     const { data } = await client.downloadPayload(sessionId, mergedPayload, signal)
-    return { svg: new TextDecoder().decode(data), processed: postBytes }
+    return { svg: new TextDecoder().decode(data), processed: postBytes, palette }
   } finally {
     signal.removeEventListener('abort', onAbort)
     events.abort()
@@ -254,7 +259,7 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
         .then((result) => {
           if (result === undefined) return
           drainPartials()
-          const { svg, processed } = result
+          const { svg, processed, palette } = result
           const svgUrl = URL.createObjectURL(new Blob([svg], { type: 'image/svg+xml' }))
           if (svgUrlRef.current !== undefined) URL.revokeObjectURL(svgUrlRef.current)
           svgUrlRef.current = svgUrl
@@ -265,7 +270,7 @@ export function usePipeline(conn: ConnectionInfo, sessionId: string): UsePipelin
               : URL.createObjectURL(new Blob([processed], { type: 'image/png' }))
           if (processedUrlRef.current !== undefined) URL.revokeObjectURL(processedUrlRef.current)
           processedUrlRef.current = processedUrl
-          setState({ phase: 'done', svg, svgUrl, processedUrl })
+          setState({ phase: 'done', svg, svgUrl, processedUrl, palette })
         })
         .catch((error: unknown) => {
           drainPartials()

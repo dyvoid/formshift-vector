@@ -70,7 +70,12 @@ export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element 
       ) : (
         <div className="workspace">
           <aside>
-            <LayerStack pipeline={pipeline} missingModules={missingModules} onChange={change} />
+            <LayerStack
+              pipeline={pipeline}
+              missingModules={missingModules}
+              proposedPalette={state.phase === 'done' ? state.palette : undefined}
+              onChange={change}
+            />
             <div className="stream-settings">
               <label>
                 Throttle (ms)

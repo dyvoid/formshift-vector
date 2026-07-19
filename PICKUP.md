@@ -7,9 +7,9 @@ instead of archaeology.
 
 **M2 (Color) stages 1–3 are merged to `main`** (2026-07-18, fast-forward of
 `task/m2-color-trace`, validated in real use). The M2 exit condition is met: a 15/16-color trace
-renders progressively in the real app. Known issue in real use: hairline seams between colors —
-see Next #1 (server-first fix). Remaining M2 scope: the diff overlay (stage 4), planned
-separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
+renders progressively in the real app. The hairline-seam issue is now fixed (colormask `grow`,
+2026-07-19) and palette control has landed alongside it — see State. Remaining M2 scope: the diff
+overlay (stage 4), planned separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
 
 ## State
 
@@ -45,33 +45,30 @@ separately. Staging and rationale in [docs/ROADMAP.md](docs/ROADMAP.md).
   usePipeline downloads it alongside the SVG (`processedUrl` on the done state, same
   revoke-on-supersede lifecycle), falling back to the raw drop when the stack is empty.
   `start.bat`/`start.sh` at the root wrap install-if-needed + `npm run dev`.
+- **Palette control + seam overlap** (2026-07-19, `task/palette-seam-control`, verified live):
+  the client side of server ADRs 0020 (explicit-palette posterize) and 0021 (colormask grow).
+  `QuantizeSettings` gains `grow: number` (default 1) and optional `palette?: string[]`
+  (undefined = auto mode driven by `colors`). `posterizeChain` sends `{ palette }` xor
+  `{ colors }`; `buildColorTraceGraph` threads `grow` into each `mask{i}` (omitted at 0 to
+  preserve pre-grow cache keys). New `pipeline/palette.ts` (normalizeHex / sanitizePalette,
+  PALETTE_MIN 2 / PALETTE_MAX 32) sanitizes at the UI and graph edges since the server 422s on
+  duplicates. New `PaletteEditor.tsx` in the Quantize fieldset: auto mode shows the last run's
+  palette as a proposal + "Customize palette"; explicit mode gives per-swatch `<input
+  type=color>`, remove (disabled at 2), Add (disabled at 32), "Pick from image" via the browser
+  EyeDropper API (guarded on `window.EyeDropper`), and "Reset to auto". The used palette is
+  surfaced on the pipeline done-state (`palette?`) so the editor can propose it. Verified end to
+  end against a live server: removing blue from the four-quadrant test image remapped its pixels
+  to the nearest remaining color in both the pre-processed source and the traced SVG.
 - No CI yet; add together with the stack toolchain.
 
 ## Next
 
-1. **Seam hairlines between colors** (confirmed in real use, 2026-07-18, exactly as the
-   server-side ADR predicted): disjoint per-color masks are traced independently, so shared
-   boundaries don't produce identical curves and background peeks through as hairlines.
-   Fix is the deferred Option A: **server task first** — optional `grow: int = 0` param on
-   `image.colormask` (dilate mask by N px before output; additive contract change, wants a
-   short server ADR). Then client: thread `grow` into the `mask{i}` params in
-   `buildColorTraceGraph` and expose a "Seam overlap (px)" slider (0–4, default 1) in the
-   Quantize fieldset. Note: with overlap, merge-tree z-order becomes slightly meaningful
-   (later colors cover earlier at the overlap) — fine at 1–2 px.
-2. **Palette control** (Planned, see ROADMAP): posterize's frequency-based clustering drops
-   small-but-important regions (real case 2026-07-18: a cat's green eyes never survive even at
-   32 colors). Server task first — `image.posterize` gains an optional explicit `palette`
-   param (nearest-color mapping, no clustering; additive contract change, wants an ADR;
-   optionally upgrade the default quantizer to libimagequant-class while in there). Then
-   client: palette swatch editor + eyedropper on the source preview, layered onto the existing
-   two-phase flow (phase 1 proposes a palette, user pins/adds/removes, phase 2 runs with the
-   explicit palette). Foundation for M4 spot colors.
-3. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): the last M2 item; measurement,
+1. **M2 stage 4 — diff overlay** (pixel IoU, recovery metrics): the last M2 item; measurement,
    not capability. Server-first — the client never touches pixels, so the metrics/diff raster
    need server modules before client work starts.
-3. **M0 exit**, now unblocked: take a real (multi-color) design from image to
+2. **M0 exit**, now unblocked: take a real (multi-color) design from image to
    production-ready SVG using only the app.
-4. **Parked M1 remainder** (after M2): packaged installer with embedded Python + server lifecycle
+3. **Parked M1 remainder** (after M2): packaged installer with embedded Python + server lifecycle
    manager (also the natural owner of the deferred session-cleanup/reconnect findings below);
    interactive crop handles (first real Fabric.js use — the current crop layer UI is numeric
    sliders). Blend/opacity remains blocked on a server-side blend module. A/B compare demoted to
@@ -130,4 +127,4 @@ human-review list or needs a design decision first. Evaluate next session:
   because it adds UI state, not because it's contested.
 
 ---
-*Last updated: 2026-07-18 (M2 stages 1–3 landed)*
+*Last updated: 2026-07-19 (palette control + seam overlap landed)*

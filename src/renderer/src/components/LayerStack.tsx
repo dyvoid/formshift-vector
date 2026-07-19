@@ -6,6 +6,7 @@
 import type { JSX } from 'react'
 import type { Pipeline, QuantizeMode, RasterLayer } from '../pipeline/model'
 import { RASTER_LAYER_DEFS, createLayer, layerDef } from '../pipeline/model'
+import { PaletteEditor } from './PaletteEditor'
 
 export type ChangePhase = 'input' | 'commit'
 
@@ -13,6 +14,8 @@ interface Props {
   pipeline: Pipeline
   /** Modules the connected server lacks; disables the Posterize option. */
   missingModules?: readonly string[]
+  /** Palette the last completed posterize run used (for the editor's proposal). */
+  proposedPalette?: readonly string[]
   onChange(next: Pipeline, phase: ChangePhase): void
 }
 
@@ -53,7 +56,12 @@ function Slider({ label, min, max, step, value, format, onValue }: SliderProps):
   )
 }
 
-export function LayerStack({ pipeline, missingModules, onChange }: Props): JSX.Element {
+export function LayerStack({
+  pipeline,
+  missingModules,
+  proposedPalette,
+  onChange
+}: Props): JSX.Element {
   const posterizeMissing =
     missingModules !== undefined && missingModules.length > 0
       ? `Server missing: ${missingModules.join(', ')}`
@@ -181,16 +189,34 @@ export function LayerStack({ pipeline, missingModules, onChange }: Props): JSX.E
           />
         )}
         {pipeline.quantize.mode === 'posterize' && (
-          <Slider
-            label="Colors"
-            min={2}
-            max={32}
-            step={1}
-            value={pipeline.quantize.colors}
-            onValue={(colors, phase) =>
-              patch({ quantize: { ...pipeline.quantize, colors } }, phase)
-            }
-          />
+          <>
+            {pipeline.quantize.palette === undefined && (
+              <Slider
+                label="Colors"
+                min={2}
+                max={32}
+                step={1}
+                value={pipeline.quantize.colors}
+                onValue={(colors, phase) =>
+                  patch({ quantize: { ...pipeline.quantize, colors } }, phase)
+                }
+              />
+            )}
+            <PaletteEditor
+              quantize={pipeline.quantize}
+              proposedPalette={proposedPalette}
+              onQuantize={(quantize, phase) => patch({ quantize }, phase)}
+            />
+            <Slider
+              label="Seam overlap (px)"
+              min={0}
+              max={4}
+              step={1}
+              value={pipeline.quantize.grow}
+              format={(v) => `${v}px`}
+              onValue={(grow, phase) => patch({ quantize: { ...pipeline.quantize, grow } }, phase)}
+            />
+          </>
         )}
       </fieldset>
 

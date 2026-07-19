@@ -71,7 +71,7 @@ describe('buildPipelineGraph', () => {
       'P1',
       pipeline({
         layers: [layer('a', 'image.levels')],
-        quantize: { mode: 'binarize', level: 100, colors: 8 }
+        quantize: { mode: 'binarize', level: 100, colors: 8, grow: 0 }
       })
     )
     expect(graph.nodes.map((n) => n.id)).toEqual(['a', 'binarize', 'trace'])
@@ -85,7 +85,7 @@ describe('buildPipelineGraph', () => {
   it('quantize mode off matches the old disabled-binarize behavior', () => {
     const off = buildPipelineGraph(
       'P1',
-      pipeline({ quantize: { mode: 'off', level: 100, colors: 8 } })
+      pipeline({ quantize: { mode: 'off', level: 100, colors: 8, grow: 1 } })
     )
     expect(off).toEqual(buildPipelineGraph('P1', DEFAULT_PIPELINE))
   })
@@ -101,7 +101,7 @@ describe('buildPipelineGraph', () => {
       'P1',
       pipeline({
         layers: [layer('a', 'image.rotate', { angle: 90 })],
-        quantize: { mode: 'binarize', level: 100, colors: 8 }
+        quantize: { mode: 'binarize', level: 100, colors: 8, grow: 0 }
       })
     )
     expect(withStack.outputs).toEqual([
@@ -126,7 +126,9 @@ describe('buildPipelineGraph', () => {
 })
 
 function posterizePipeline(colors: number, partial: Partial<Pipeline> = {}): Pipeline {
-  return pipeline({ quantize: { mode: 'posterize', level: 128, colors }, ...partial })
+  // grow: 0 keeps the exact-match node assertions free of a grow param;
+  // grow behavior is pinned by its own cases below.
+  return pipeline({ quantize: { mode: 'posterize', level: 128, colors, grow: 0 }, ...partial })
 }
 
 describe('buildPosterizeGraph', () => {
@@ -150,6 +152,19 @@ describe('buildPosterizeGraph', () => {
     const graph = buildPosterizeGraph('P1', posterizePipeline(8))
     expect(graph.nodes).toEqual([{ id: 'post', module: 'image.posterize', params: { colors: 8 } }])
     expect(graph.bindings).toEqual([{ payload: 'P1', node: 'post', port: 'image' }])
+  })
+
+  it('an explicit palette replaces colors on the posterize node', () => {
+    const p = posterizePipeline(8)
+    p.quantize.palette = ['#ff0000', '#00ff00', '#0000ff']
+    const graph = buildPosterizeGraph('P1', p)
+    expect(graph.nodes).toEqual([
+      {
+        id: 'post',
+        module: 'image.posterize',
+        params: { palette: ['#ff0000', '#00ff00', '#0000ff'] }
+      }
+    ])
   })
 })
 
@@ -255,5 +270,30 @@ describe('buildColorTraceGraph', () => {
     const traces = graph.nodes.filter((n) => n.module === 'potrace.trace')
     expect(traces).toHaveLength(2)
     for (const t of traces) expect(t.params).toEqual({ blacklevel: 0.7, turdsize: 5 })
+  })
+
+  it('threads grow into every mask node when set', () => {
+    const p = posterizePipeline(2)
+    p.quantize.grow = 2
+    const { graph } = buildColorTraceGraph('P1', p, PALETTE_2)
+    const masks = graph.nodes.filter((n) => n.module === 'image.colormask')
+    expect(masks).toEqual([
+      { id: 'mask0', module: 'image.colormask', params: { index: 0, grow: 2 } },
+      { id: 'mask1', module: 'image.colormask', params: { index: 1, grow: 2 } }
+    ])
+  })
+
+  it('omits grow at 0 so pre-grow cache keys still hit', () => {
+    const { graph } = buildColorTraceGraph('P1', posterizePipeline(2), PALETTE_2)
+    const masks = graph.nodes.filter((n) => n.module === 'image.colormask')
+    expect(masks.map((n) => n.params)).toEqual([{ index: 0 }, { index: 1 }])
+  })
+
+  it('uses the explicit palette on the posterize node in the fan-out too', () => {
+    const p = posterizePipeline(2)
+    p.quantize.palette = [...PALETTE_2]
+    const { graph } = buildColorTraceGraph('P1', p, PALETTE_2)
+    const post = graph.nodes.find((n) => n.id === 'post')
+    expect(post?.params).toEqual({ palette: ['#ff0000', '#00ff00'] })
   })
 })

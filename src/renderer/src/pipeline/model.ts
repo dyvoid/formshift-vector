@@ -27,6 +27,14 @@ export interface QuantizeSettings {
   level: number
   /** Posterize palette size; retained across mode switches. */
   colors: number
+  /** Colormask dilation in px (seam overlap between traced colors). */
+  grow: number
+  /**
+   * Explicit posterize palette (#rrggbb entries, server-side nearest-color
+   * mapping). Undefined = auto mode, where `colors` drives discovery.
+   * Retained across mode switches like the other quantize params.
+   */
+  palette?: string[]
 }
 
 export interface TraceSettings {
@@ -125,6 +133,6 @@ export function createLayer(module: RasterModuleId): RasterLayer {
 
 export const DEFAULT_PIPELINE: Pipeline = {
   layers: [],
-  quantize: { mode: 'off', level: 128, colors: 8 },
+  quantize: { mode: 'off', level: 128, colors: 8, grow: 1 },
   trace: { blacklevel: 0.5, turdsize: 2 }
 }

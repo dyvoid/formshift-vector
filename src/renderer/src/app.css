@@ -201,6 +201,81 @@ input {
   font-size: 0.85rem;
 }
 
+/* --- Palette editor --- */
+
+.palette-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.palette-editor .swatch-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.palette-editor .swatch {
+  width: 1.2rem;
+  height: 1.2rem;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+}
+
+.palette-editor .swatch.editable {
+  position: relative;
+  width: auto;
+  height: auto;
+  border: 0;
+  display: flex;
+  align-items: center;
+}
+
+.palette-editor .swatch.editable input[type='color'] {
+  width: 1.6rem;
+  height: 1.6rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: transparent;
+}
+
+.palette-editor .swatch.editable button {
+  position: absolute;
+  top: -0.45rem;
+  right: -0.35rem;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  font-size: 0.65rem;
+  padding: 0;
+  cursor: pointer;
+}
+
+.palette-editor .swatch.editable button:hover:not(:disabled) {
+  color: var(--text);
+}
+
+.palette-editor .swatch.editable button:disabled {
+  visibility: hidden;
+}
+
+.palette-editor .palette-actions {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.palette-editor .palette-actions button,
+.palette-editor > button {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.5rem;
+  align-self: flex-start;
+}
+
 .stream-settings {
   border-top: 1px solid var(--border);
   padding-top: 0.8rem;

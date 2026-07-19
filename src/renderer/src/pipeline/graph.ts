@@ -14,6 +14,7 @@
 import type { Graph, GraphNode, Edge, OutputRef } from '../server/types'
 import type { Pipeline, RasterLayer } from './model'
 import { layerDef } from './model'
+import { PALETTE_MIN, sanitizePalette } from './palette'
 
 const IMAGE_PORT = 'image'
 
@@ -88,10 +89,21 @@ function posterizeChain(payloadId: string, pipeline: Pipeline): Graph {
     if (!layer.enabled) continue
     nodes.push({ id: layer.id, module: layer.module, params: layerParams(layer) })
   }
+  // palette and colors are mutually exclusive on the server; an explicit
+  // palette replaces clustering with nearest-color mapping (server ADR 0020).
+  // Sanitized here as well as in the editor: a mid-drag input state can hold
+  // a transient duplicate, which the server would 422 on.
+  const palette =
+    pipeline.quantize.palette !== undefined
+      ? sanitizePalette(pipeline.quantize.palette)
+      : undefined
   nodes.push({
     id: 'post',
     module: 'image.posterize',
-    params: { colors: pipeline.quantize.colors }
+    params:
+      palette !== undefined && palette.length >= PALETTE_MIN
+        ? { palette }
+        : { colors: pipeline.quantize.colors }
   })
   for (let i = 1; i < nodes.length; i += 1) {
     edges.push({
@@ -146,7 +158,16 @@ export function buildColorTraceGraph(
     const trace = `trace${i}`
     const color = `color${i}`
     nodes.push(
-      { id: mask, module: 'image.colormask', params: { index: i } },
+      // grow omitted at 0: the server caches on canonical params, so absence
+      // keeps cache hits on results computed before the grow param existed.
+      {
+        id: mask,
+        module: 'image.colormask',
+        params:
+          pipeline.quantize.grow > 0
+            ? { index: i, grow: pipeline.quantize.grow }
+            : { index: i }
+      },
       { id: trace, module: 'potrace.trace', params: { ...pipeline.trace } },
       { id: color, module: 'svg.colorize', params: { fill: palette[i] } }
     )
