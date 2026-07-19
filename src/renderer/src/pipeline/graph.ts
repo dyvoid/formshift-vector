@@ -163,9 +163,7 @@ export function buildColorTraceGraph(
         id: mask,
         module: 'image.colormask',
         params:
-          pipeline.quantize.grow > 0
-            ? { index: i, grow: pipeline.quantize.grow }
-            : { index: i }
+          pipeline.quantize.grow > 0 ? { index: i, grow: pipeline.quantize.grow } : { index: i }
       },
       { id: trace, module: 'potrace.trace', params: { ...pipeline.trace } },
       { id: color, module: 'svg.colorize', params: { fill: palette[i] } }

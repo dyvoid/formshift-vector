@@ -1,5 +1,6 @@
 # Formshift: Vector
 
+[![CI](https://github.com/dyvoid/formshift-vector/actions/workflows/ci.yml/badge.svg)](https://github.com/dyvoid/formshift-vector/actions/workflows/ci.yml)
 [![Status](https://img.shields.io/badge/status-M2_Color_in_flight-yellow)](docs/ROADMAP.md)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue?logo=typescript&logoColor=white)](tsconfig.json)
