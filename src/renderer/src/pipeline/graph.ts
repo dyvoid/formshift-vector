@@ -93,10 +93,9 @@ function posterizeChain(payloadId: string, pipeline: Pipeline): Graph {
   // palette replaces clustering with nearest-color mapping (server ADR 0020).
   // Sanitized here as well as in the editor: a mid-drag input state can hold
   // a transient duplicate, which the server would 422 on.
-  const palette =
-    pipeline.quantize.palette !== undefined
-      ? sanitizePalette(pipeline.quantize.palette)
-      : undefined
+  const palette = pipeline.quantize.useCustomPalette
+    ? sanitizePalette(pipeline.quantize.palette ?? [])
+    : undefined
   nodes.push({
     id: 'post',
     module: 'image.posterize',

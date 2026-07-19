@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeHex, sanitizePalette } from './palette'
+import { PALETTE_MAX, nextSwatch, normalizeHex, sanitizePalette } from './palette'
 
 describe('normalizeHex', () => {
   it('passes through lowercase #rrggbb', () => {
@@ -43,5 +43,26 @@ describe('sanitizePalette', () => {
 
   it('drops invalid entries', () => {
     expect(sanitizePalette(['nope', '#123456', ''])).toEqual(['#123456'])
+  })
+})
+
+describe('nextSwatch', () => {
+  it('returns a well-formed hex', () => {
+    expect(nextSwatch([])).toMatch(/^#[0-9a-f]{6}$/)
+  })
+
+  it('never repeats an entry already in the palette', () => {
+    // Repeated adds must not collapse under sanitizePalette's dedupe — that
+    // would make the editor's "+ Add" a silent no-op.
+    let palette: string[] = []
+    for (let i = 0; i < PALETTE_MAX; i += 1) {
+      palette = sanitizePalette([...palette, nextSwatch(palette)])
+      expect(palette).toHaveLength(i + 1)
+    }
+  })
+
+  it('ignores case when checking what is taken', () => {
+    const first = nextSwatch([])
+    expect(nextSwatch([first.toUpperCase()])).not.toBe(first)
   })
 })

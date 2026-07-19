@@ -260,6 +260,11 @@ input {
   visibility: hidden;
 }
 
+.palette-editor .palette-note {
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
 .palette-editor .palette-actions {
   display: flex;
   gap: 0.4rem;

@@ -16,6 +16,8 @@ interface Props {
   missingModules?: readonly string[]
   /** Palette the last completed posterize run used (for the editor's proposal). */
   proposedPalette?: readonly string[]
+  /** Raised while the palette eyedropper is open (see PaletteEditor). */
+  onPickingChange?(active: boolean): void
   onChange(next: Pipeline, phase: ChangePhase): void
 }
 
@@ -60,6 +62,7 @@ export function LayerStack({
   pipeline,
   missingModules,
   proposedPalette,
+  onPickingChange,
   onChange
 }: Props): JSX.Element {
   const posterizeMissing =
@@ -190,7 +193,7 @@ export function LayerStack({
         )}
         {pipeline.quantize.mode === 'posterize' && (
           <>
-            {pipeline.quantize.palette === undefined && (
+            {!pipeline.quantize.useCustomPalette && (
               <Slider
                 label="Colors"
                 min={2}
@@ -205,6 +208,7 @@ export function LayerStack({
             <PaletteEditor
               quantize={pipeline.quantize}
               proposedPalette={proposedPalette}
+              onPickingChange={onPickingChange}
               onQuantize={(quantize, phase) => patch({ quantize }, phase)}
             />
             <Slider

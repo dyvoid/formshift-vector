@@ -21,14 +21,24 @@ interface Props {
   source: SourceImage
   state: PipelineState
   previewBg: PreviewBackdrop
+  /** Force the original raster into the source figure — the palette
+   *  eyedropper samples the screen, and the pre-processed raster has already
+   *  lost the colors the user is trying to pin. */
+  showOriginal?: boolean
   onPreviewBgChange(next: PreviewBackdrop): void
 }
 
-export function SvgPreview({ source, state, previewBg, onPreviewBgChange }: Props): JSX.Element {
+export function SvgPreview({
+  source,
+  state,
+  previewBg,
+  showOriginal = false,
+  onPreviewBgChange
+}: Props): JSX.Element {
   const svgUrl = state.phase === 'done' ? state.svgUrl : undefined
   // Show the raster as trace saw it (post pre-processing); the raw drop is
   // the fallback until a result arrives or when the stack is empty.
-  const processedUrl = state.phase === 'done' ? state.processedUrl : undefined
+  const processedUrl = showOriginal || state.phase !== 'done' ? undefined : state.processedUrl
   // Per-color layers streaming in during a posterize run; stacked unordered
   // (completion order) because the color masks are disjoint. The merged SVG
   // replaces the stack on done.
@@ -38,7 +48,13 @@ export function SvgPreview({ source, state, previewBg, onPreviewBgChange }: Prop
     <div className="preview">
       <figure>
         <img src={processedUrl ?? source.previewUrl} alt={`Source: ${source.name}`} />
-        <figcaption>{processedUrl !== undefined ? 'Source (pre-processed)' : 'Source'}</figcaption>
+        <figcaption>
+          {showOriginal
+            ? 'Source (original — pick a color)'
+            : processedUrl !== undefined
+              ? 'Source (pre-processed)'
+              : 'Source'}
+        </figcaption>
       </figure>
       <div className="trace-column">
         <div className="backdrop-picker" role="group" aria-label="Trace preview background">

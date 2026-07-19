@@ -31,10 +31,12 @@ export interface QuantizeSettings {
   grow: number
   /**
    * Explicit posterize palette (#rrggbb entries, server-side nearest-color
-   * mapping). Undefined = auto mode, where `colors` drives discovery.
-   * Retained across mode switches like the other quantize params.
+   * mapping). Retained while switched off so toggling back restores the
+   * user's edits — the same remembered-while-off pattern as `level`/`colors`.
    */
   palette?: string[]
+  /** Whether `palette` drives posterize instead of `colors`. */
+  useCustomPalette: boolean
 }
 
 export interface TraceSettings {
@@ -133,6 +135,6 @@ export function createLayer(module: RasterModuleId): RasterLayer {
 
 export const DEFAULT_PIPELINE: Pipeline = {
   layers: [],
-  quantize: { mode: 'off', level: 128, colors: 8, grow: 1 },
+  quantize: { mode: 'off', level: 128, colors: 8, grow: 1, useCustomPalette: false },
   trace: { blacklevel: 0.5, turdsize: 2 }
 }

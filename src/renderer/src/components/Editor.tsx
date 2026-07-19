@@ -34,6 +34,9 @@ export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element 
   const [commitOnly, setCommitOnly] = useState(false)
   const [draft, setDraft] = useState(false)
   const [previewBg, setPreviewBg] = useState<PreviewBackdrop>('checker')
+  // Palette eyedropper is open: the source figure shows the original raster
+  // so the user can pick colors pre-processing dropped.
+  const [picking, setPicking] = useState(false)
 
   const stream = useMemo(
     () => createControlStream<Pipeline>((next) => run(next, { draft }), { rateMs, commitOnly }),
@@ -74,6 +77,7 @@ export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element 
               pipeline={pipeline}
               missingModules={missingModules}
               proposedPalette={state.phase === 'done' ? state.palette : undefined}
+              onPickingChange={setPicking}
               onChange={change}
             />
             <div className="stream-settings">
@@ -119,6 +123,7 @@ export function Editor({ conn, sessionId, missingModules }: Props): JSX.Element 
             source={source}
             state={state}
             previewBg={previewBg}
+            showOriginal={picking}
             onPreviewBgChange={setPreviewBg}
           />
         </div>

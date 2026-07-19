@@ -1,22 +1,49 @@
-// The posterize palette editor (server ADR 0020). Auto mode shows the
-// palette the last run discovered, with a one-click handoff into explicit
-// mode; explicit mode edits the palette that posterize maps to directly.
-// Pinning is implicit: every entry in an explicit palette is pinned by
+// The posterize palette editor (server ADR 0020). Auto mode shows a palette
+// proposal — the user's remembered custom palette if there is one, otherwise
+// the one the last run discovered — with a one-click switch into custom mode,
+// where the palette posterize maps to is edited directly.
+//
+// Custom mode is a remembered toggle, not a one-way door: switching back to
+// auto keeps the edited palette so the user can return to it (the same
+// remembered-while-off pattern as the other quantize params).
+//
+// Pinning is implicit: every entry in a custom palette is pinned by
 // definition — nearest-color mapping cannot drop it.
 
 import type { JSX } from 'react'
 import type { QuantizeSettings } from '../pipeline/model'
-import { PALETTE_MAX, PALETTE_MIN, normalizeHex, sanitizePalette } from '../pipeline/palette'
+import {
+  PALETTE_MAX,
+  PALETTE_MIN,
+  nextSwatch,
+  normalizeHex,
+  sanitizePalette
+} from '../pipeline/palette'
 import type { ChangePhase } from './LayerStack'
 
 interface Props {
   quantize: QuantizeSettings
-  /** Palette the last completed run used; shown as the auto-mode proposal. */
+  /** Palette the last completed run used; the auto-mode proposal. */
   proposedPalette?: readonly string[]
+  /** Raised while the eyedropper is open, so the source preview can show the
+   *  original raster — the pre-processed one has already lost the colors the
+   *  user is trying to pin. */
+  onPickingChange?(active: boolean): void
   onQuantize(next: QuantizeSettings, phase: ChangePhase): void
 }
 
-export function PaletteEditor({ quantize, proposedPalette, onQuantize }: Props): JSX.Element {
+/** Keep `colors` meaningful when leaving custom mode: auto resumes at the
+ *  size the user actually ended up working with. */
+function clampColors(count: number): number {
+  return Math.min(PALETTE_MAX, Math.max(PALETTE_MIN, count))
+}
+
+export function PaletteEditor({
+  quantize,
+  proposedPalette,
+  onPickingChange,
+  onQuantize
+}: Props): JSX.Element {
   const palette = quantize.palette
 
   function commitPalette(entries: string[], phase: ChangePhase): void {
@@ -29,22 +56,30 @@ export function PaletteEditor({ quantize, proposedPalette, onQuantize }: Props):
 
   async function pickFromScreen(): Promise<void> {
     if (palette === undefined || window.EyeDropper === undefined) return
+    onPickingChange?.(true)
     try {
+      // Let the preview repaint the original raster before the screen is
+      // sampled — the eyedropper reads pixels as they are on screen.
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       const { sRGBHex } = await new window.EyeDropper().open()
       const hex = normalizeHex(sRGBHex)
       if (hex !== undefined) commitPalette([...palette, hex], 'commit')
     } catch {
       // The user pressed Esc — a cancel, not an error.
+    } finally {
+      onPickingChange?.(false)
     }
   }
 
-  if (palette === undefined) {
-    // Auto mode: read-only proposal from the last run, if any.
-    if (proposedPalette === undefined || proposedPalette.length < PALETTE_MIN) return <></>
+  if (!quantize.useCustomPalette) {
+    // Auto mode: the remembered custom palette if there is one, else the last
+    // run's discovered palette, shown read-only as a proposal.
+    const proposal = palette ?? proposedPalette
+    if (proposal === undefined || proposal.length < PALETTE_MIN) return <></>
     return (
       <div className="palette-editor">
         <div className="swatch-row">
-          {proposedPalette.map((fill, i) => (
+          {proposal.map((fill, i) => (
             <span key={i} className="swatch" style={{ background: fill }} title={fill} />
           ))}
         </div>
@@ -52,21 +87,28 @@ export function PaletteEditor({ quantize, proposedPalette, onQuantize }: Props):
           type="button"
           onClick={() =>
             onQuantize(
-              { ...quantize, palette: sanitizePalette(proposedPalette).slice(0, PALETTE_MAX) },
+              {
+                ...quantize,
+                useCustomPalette: true,
+                palette: sanitizePalette(proposal).slice(0, PALETTE_MAX)
+              },
               'commit'
             )
           }
         >
-          Customize palette
+          {palette !== undefined ? 'Use custom palette' : 'Customize palette'}
         </button>
       </div>
     )
   }
 
+  const entries = palette ?? []
+  const atCap = entries.length >= PALETTE_MAX
+
   return (
     <div className="palette-editor">
       <div className="swatch-row">
-        {palette.map((fill, i) => (
+        {entries.map((fill, i) => (
           <span key={i} className="swatch editable">
             <input
               type="color"
@@ -74,19 +116,19 @@ export function PaletteEditor({ quantize, proposedPalette, onQuantize }: Props):
               title={fill}
               onChange={(event) =>
                 commitPalette(
-                  palette.map((c, j) => (j === i ? event.target.value : c)),
+                  entries.map((c, j) => (j === i ? event.target.value : c)),
                   'input'
                 )
               }
-              onBlur={() => commitPalette(palette, 'commit')}
+              onBlur={() => commitPalette(entries, 'commit')}
             />
             <button
               type="button"
               aria-label={`Remove color ${fill}`}
-              disabled={palette.length <= PALETTE_MIN}
+              disabled={entries.length <= PALETTE_MIN}
               onClick={() =>
                 commitPalette(
-                  palette.filter((_, j) => j !== i),
+                  entries.filter((_, j) => j !== i),
                   'commit'
                 )
               }
@@ -99,27 +141,32 @@ export function PaletteEditor({ quantize, proposedPalette, onQuantize }: Props):
       <div className="palette-actions">
         <button
           type="button"
-          disabled={palette.length >= PALETTE_MAX}
-          onClick={() => commitPalette([...palette, '#808080'], 'commit')}
+          disabled={atCap}
+          onClick={() => commitPalette([...entries, nextSwatch(entries)], 'commit')}
         >
           + Add
         </button>
         {window.EyeDropper !== undefined && (
-          <button
-            type="button"
-            disabled={palette.length >= PALETTE_MAX}
-            onClick={() => void pickFromScreen()}
-          >
+          <button type="button" disabled={atCap} onClick={() => void pickFromScreen()}>
             Pick from image
           </button>
         )}
         <button
           type="button"
-          onClick={() => onQuantize({ ...quantize, palette: undefined }, 'commit')}
+          onClick={() =>
+            onQuantize(
+              { ...quantize, useCustomPalette: false, colors: clampColors(entries.length) },
+              'commit'
+            )
+          }
         >
-          Reset to auto
+          Use auto palette
         </button>
       </div>
+      <span className="palette-note">
+        {entries.length} color{entries.length === 1 ? '' : 's'}
+        {atCap ? ` — ${PALETTE_MAX} max` : ''}
+      </span>
     </div>
   )
 }

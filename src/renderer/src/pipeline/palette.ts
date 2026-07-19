@@ -33,3 +33,32 @@ export function sanitizePalette(entries: readonly string[]): string[] {
   }
   return out
 }
+
+function hslHex(hue: number, lightness: number): string {
+  const a = 0.5 * Math.min(lightness, 1 - lightness)
+  const channel = (n: number): string => {
+    const k = (n + hue / 30) % 12
+    const value = lightness - a * Math.max(-1, Math.min(k - 3, 9 - k, 1))
+    return Math.round(value * 255)
+      .toString(16)
+      .padStart(2, '0')
+  }
+  return `#${channel(0)}${channel(8)}${channel(4)}`
+}
+
+/** Deterministic spread of candidate swatches: mid, dark, then light hues,
+ *  followed by a grey ramp. Long enough to outlast PALETTE_MAX. */
+const SWATCH_CANDIDATES: readonly string[] = [
+  ...[0.5, 0.3, 0.7].flatMap((l) => Array.from({ length: 12 }, (_, i) => hslHex(i * 30, l))),
+  ...Array.from({ length: 9 }, (_, i) => hslHex(0, i / 8))
+]
+
+/**
+ * A swatch not already in `existing`, so "add" never silently dedupes into a
+ * no-op. Falls back to the first candidate if every one is taken (only
+ * reachable above PALETTE_MAX, where adding is already blocked).
+ */
+export function nextSwatch(existing: readonly string[]): string {
+  const taken = new Set(sanitizePalette(existing))
+  return SWATCH_CANDIDATES.find((c) => !taken.has(c)) ?? SWATCH_CANDIDATES[0]
+}

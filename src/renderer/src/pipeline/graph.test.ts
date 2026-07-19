@@ -71,7 +71,7 @@ describe('buildPipelineGraph', () => {
       'P1',
       pipeline({
         layers: [layer('a', 'image.levels')],
-        quantize: { mode: 'binarize', level: 100, colors: 8, grow: 0 }
+        quantize: { mode: 'binarize', level: 100, colors: 8, grow: 0, useCustomPalette: false }
       })
     )
     expect(graph.nodes.map((n) => n.id)).toEqual(['a', 'binarize', 'trace'])
@@ -85,7 +85,9 @@ describe('buildPipelineGraph', () => {
   it('quantize mode off matches the old disabled-binarize behavior', () => {
     const off = buildPipelineGraph(
       'P1',
-      pipeline({ quantize: { mode: 'off', level: 100, colors: 8, grow: 1 } })
+      pipeline({
+        quantize: { mode: 'off', level: 100, colors: 8, grow: 1, useCustomPalette: false }
+      })
     )
     expect(off).toEqual(buildPipelineGraph('P1', DEFAULT_PIPELINE))
   })
@@ -101,7 +103,7 @@ describe('buildPipelineGraph', () => {
       'P1',
       pipeline({
         layers: [layer('a', 'image.rotate', { angle: 90 })],
-        quantize: { mode: 'binarize', level: 100, colors: 8, grow: 0 }
+        quantize: { mode: 'binarize', level: 100, colors: 8, grow: 0, useCustomPalette: false }
       })
     )
     expect(withStack.outputs).toEqual([
@@ -128,7 +130,10 @@ describe('buildPipelineGraph', () => {
 function posterizePipeline(colors: number, partial: Partial<Pipeline> = {}): Pipeline {
   // grow: 0 keeps the exact-match node assertions free of a grow param;
   // grow behavior is pinned by its own cases below.
-  return pipeline({ quantize: { mode: 'posterize', level: 128, colors, grow: 0 }, ...partial })
+  return pipeline({
+    quantize: { mode: 'posterize', level: 128, colors, grow: 0, useCustomPalette: false },
+    ...partial
+  })
 }
 
 describe('buildPosterizeGraph', () => {
@@ -156,6 +161,7 @@ describe('buildPosterizeGraph', () => {
 
   it('an explicit palette replaces colors on the posterize node', () => {
     const p = posterizePipeline(8)
+    p.quantize.useCustomPalette = true
     p.quantize.palette = ['#ff0000', '#00ff00', '#0000ff']
     const graph = buildPosterizeGraph('P1', p)
     expect(graph.nodes).toEqual([
@@ -165,6 +171,23 @@ describe('buildPosterizeGraph', () => {
         params: { palette: ['#ff0000', '#00ff00', '#0000ff'] }
       }
     ])
+  })
+
+  it('a remembered palette is ignored while custom mode is off', () => {
+    const p = posterizePipeline(8)
+    p.quantize.palette = ['#ff0000', '#00ff00', '#0000ff']
+    p.quantize.useCustomPalette = false
+    const graph = buildPosterizeGraph('P1', p)
+    expect(graph.nodes[0].params).toEqual({ colors: 8 })
+  })
+
+  it('falls back to colors when the custom palette is too short to send', () => {
+    const p = posterizePipeline(8)
+    p.quantize.useCustomPalette = true
+    // Duplicates collapse to one entry, below the server's 2-entry minimum.
+    p.quantize.palette = ['#ff0000', '#FF0000']
+    const graph = buildPosterizeGraph('P1', p)
+    expect(graph.nodes[0].params).toEqual({ colors: 8 })
   })
 })
 
@@ -291,6 +314,7 @@ describe('buildColorTraceGraph', () => {
 
   it('uses the explicit palette on the posterize node in the fan-out too', () => {
     const p = posterizePipeline(2)
+    p.quantize.useCustomPalette = true
     p.quantize.palette = [...PALETTE_2]
     const { graph } = buildColorTraceGraph('P1', p, PALETTE_2)
     const post = graph.nodes.find((n) => n.id === 'post')

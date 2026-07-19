@@ -32,7 +32,10 @@ function testColorPng(): Uint8Array<ArrayBuffer> {
 }
 
 function posterizePipeline(colors: number): Pipeline {
-  return { ...DEFAULT_PIPELINE, quantize: { mode: 'posterize', level: 128, colors, grow: 0 } }
+  return {
+    ...DEFAULT_PIPELINE,
+    quantize: { mode: 'posterize', level: 128, colors, grow: 0, useCustomPalette: false }
+  }
 }
 
 describe.skipIf(!live)('color tracing against a live server', () => {
@@ -107,6 +110,7 @@ describe.skipIf(!live)('color tracing against a live server', () => {
       // Deliberately not the image's colors and not frequency-ordered: the
       // server must emit this exact list, in this exact order, as the PLTE
       // (server ADR 0020).
+      pipeline.quantize.useCustomPalette = true
       pipeline.quantize.palette = ['#123456', '#ff0000', '#00ff00']
       const graph = buildPosterizeGraph(payloadId, pipeline)
       const jobId = await client.submitJob(sessionId, graph)
